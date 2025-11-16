@@ -3,11 +3,10 @@
 //  ExpenseManager
 //
 //  This view demonstrates:
-//  1. @State for month selection
-//  2. Computed properties for calculations
-//  3. ForEach loops with data transformation
-//  4. Conditional rendering based on data
-//  5. Formatting numbers for display
+//  1. Pie chart visualization by large category
+//  2. Daily expense summary
+//  3. Hierarchical category breakdown
+//  4. Month navigation
 //
 
 import SwiftUI
@@ -16,9 +15,7 @@ struct OutputView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
     
     // MARK: - State for Month Selection
-    // User can navigate between months
     @State private var selectedMonth: Date = {
-        // Initialize to current month
         let now = Date()
         let calendar = Calendar.current
         let components = calendar.dateComponents([.year, .month], from: now)
@@ -32,19 +29,20 @@ struct OutputView: View {
                 HStack {
                     Button(action: previousMonth) {
                         Image(systemName: "chevron.left")
+                            .font(.headline)
                     }
                     
                     Spacer()
                     
-                    // MARK: - Month Display
-                    // DateFormatter converts Date to readable string
-                    Text(selectedMonth, style: .date)
+                    Text(monthString(selectedMonth))
                         .font(.headline)
+                        .fontWeight(.semibold)
                     
                     Spacer()
                     
                     Button(action: nextMonth) {
                         Image(systemName: "chevron.right")
+                            .font(.headline)
                     }
                 }
                 .padding()
@@ -52,10 +50,13 @@ struct OutputView: View {
                 
                 // MARK: - Main Content
                 if expenses.isEmpty {
-                    VStack {
-                        Text("No expenses for this month")
+                    VStack(spacing: 16) {
+                        Image(systemName: "chart.pie")
+                            .font(.system(size: 50))
                             .foregroundColor(.gray)
-                        Text("Start by adding an expense in the 'Add' tab")
+                        Text("支出データがありません")
+                            .font(.headline)
+                        Text("入力タブで支出を追加してください")
                             .font(.caption)
                             .foregroundColor(.gray)
                     }
@@ -64,188 +65,207 @@ struct OutputView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 16) {
-                            // MARK: - Total Summary Card
-                            summaryCard
+                            // MARK: - Pie Chart by Large Category
+                            pieChartSection
                             
-                            // MARK: - Category Breakdown
-                            categoryBreakdownSection
-                            
-                            // MARK: - Expense List
-                            expenseListSection
+                            // MARK: - Daily Breakdown
+                            dailyBreakdownSection
                         }
                         .padding()
                     }
                 }
             }
-            .navigationTitle("Analytics")
+            .navigationTitle("統計")
         }
     }
     
     // MARK: - Computed Properties
-    // These recalculate automatically when dataManager.expenses changes
     
-    /// Get expenses for selected month
     private var expenses: [ExpenseItem] {
         dataManager.getExpensesForMonth(selectedMonth)
     }
     
-    /// Calculate total spending for the month
-    private var monthlyTotal: Double {
+    private var totalAmount: Double {
         expenses.reduce(0) { $0 + $1.amount }
     }
     
-    /// Group expenses by category
-    private var expensesByCategory: [String: [ExpenseItem]] {
-        Dictionary(grouping: expenses, by: { $0.category })
-    }
-    
-    /// Get all unique categories that have expenses this month
-    private var categoriesWithExpenses: [String] {
-        Array(expensesByCategory.keys).sorted()
-    }
-    
-    // MARK: - Summary Card UI Component
-    private var summaryCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Total Spent")
-                .font(.caption)
-                .foregroundColor(.gray)
-            
-            // MARK: - Number Formatting
-            // Format as currency with 2 decimal places
-            Text("¥\(String(format: "%.2f", monthlyTotal))")
-                .font(.title)
-                .fontWeight(.bold)
-            
-            HStack {
-                Text("Transactions")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                Spacer()
-                Text("\(expenses.count)")
-                    .fontWeight(.semibold)
-            }
+    private var expensesByLargeCategory: [String: Double] {
+        var totals: [String: Double] = [:]
+        expenses.forEach { expense in
+            totals[expense.largeCategory, default: 0] += expense.amount
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.blue.opacity(0.1))
-        .cornerRadius(8)
+        return totals
     }
     
-    // MARK: - Category Breakdown Section
-    private var categoryBreakdownSection: some View {
+    private var sortedLargeCategories: [(category: String, amount: Double)] {
+        expensesByLargeCategory
+            .sorted { $0.value > $1.value }
+    }
+    
+    private var expensesByDay: [String: Double] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd"
+        
+        var dailyTotals: [String: Double] = [:]
+        expenses.forEach { expense in
+            let dateKey = formatter.string(from: expense.date)
+            dailyTotals[dateKey, default: 0] += expense.amount
+        }
+        return dailyTotals
+    }
+    
+    private var sortedDailyBreakdown: [(date: String, amount: Double)] {
+        expensesByDay
+            .sorted { dateA, dateB in
+                guard let dateAObj = dateStringToDate(dateA.key),
+                      let dateBObj = dateStringToDate(dateB.key) else {
+                    return false
+                }
+                return dateAObj < dateBObj
+            }
+    }
+    
+    // MARK: - Pie Chart Section
+    private var pieChartSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("By Category")
+            Text("カテゴリー別支出 (By Category)")
                 .font(.headline)
+                .fontWeight(.semibold)
             
-            // MARK: - ForEach with Calculated Values
-            // Loop through categories and calculate totals
-            ForEach(categoriesWithExpenses, id: \.self) { category in
-                let categoryExpenses = expensesByCategory[category] ?? []
-                let categoryTotal = categoryExpenses.reduce(0) { $0 + $1.amount }
-                let percentage = (categoryTotal / monthlyTotal) * 100
-                
-                VStack(spacing: 8) {
-                    HStack {
-                        // Get category icon from dataManager
-                        if let cat = dataManager.categories.first(where: { $0.name == category }) {
-                            Text(cat.icon)
-                                .font(.title3)
-                        }
+            // MARK: - Summary Card
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("合計")
+                        .foregroundColor(.gray)
+                    Spacer()
+                    Text("¥\(String(format: "%.0f", totalAmount))")
+                        .fontWeight(.bold)
+                        .font(.title3)
+                }
+            }
+            .padding(12)
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(8)
+            
+            // MARK: - Pie Chart Visual
+            HStack(spacing: 20) {
+                // Pie Chart Circle
+                ZStack {
+                    ForEach(Array(sortedLargeCategories.enumerated()), id: \.element.category) { index, item in
+                        let percentage = item.amount / totalAmount
+                        let angle = calculateAngle(for: index, categories: sortedLargeCategories, total: totalAmount)
                         
-                        Text(category)
-                            .fontWeight(.semibold)
-                        
-                        Spacer()
-                        
-                        Text("¥\(String(format: "%.2f", categoryTotal))")
-                            .fontWeight(.semibold)
-                    }
-                    
-                    // MARK: - Progress Bar
-                    // Visual representation of category spending
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            // Background bar
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(.systemGray5))
-                            
-                            // Filled bar
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.blue)
-                                .frame(width: geometry.size.width * (percentage / 100))
-                        }
-                    }
-                    .frame(height: 8)
-                    
-                    HStack {
-                        Text("\(Int(percentage))%")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        Spacer()
-                        Text("\(categoryExpenses.count) transactions")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                        PieSlice(
+                            startAngle: angle.start,
+                            endAngle: angle.end,
+                            color: getCategoryColor(item.category)
+                        )
                     }
                 }
-                .padding(.vertical, 8)
+                .frame(width: 120, height: 120)
+                
+                // Legend
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(sortedLargeCategories, id: \.category) { item in
+                        let percentage = (item.amount / totalAmount) * 100
+                        
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(getCategoryColor(item.category))
+                                .frame(width: 12, height: 12)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.category)
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                Text("\(Int(percentage))%")
+                                    .font(.caption2)
+                                    .foregroundColor(.gray)
+                            }
+                            
+                            Spacer()
+                            
+                            Text("¥\(String(format: "%.0f", item.amount))")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                        }
+                    }
+                }
             }
+            .padding(12)
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
+        .padding(12)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(radius: 2)
     }
     
-    // MARK: - Expense List Section
-    private var expenseListSection: some View {
+    // MARK: - Daily Breakdown Section
+    private var dailyBreakdownSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Transactions")
+            Text("日別支出 (Daily Breakdown)")
                 .font(.headline)
+                .fontWeight(.semibold)
             
-            // MARK: - Sort and Display
-            // Sort by date (newest first)
-            ForEach(expenses.sorted { $0.date > $1.date }) { expense in
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        // Category icon and name
-                        if let category = dataManager.categories.first(where: { $0.name == expense.category }) {
-                            HStack {
-                                Text(category.icon)
-                                Text(expense.category)
-                                    .fontWeight(.semibold)
+            VStack(spacing: 8) {
+                ForEach(sortedDailyBreakdown, id: \.date) { date, amount in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(date)
+                                .font(.body)
+                                .fontWeight(.semibold)
+                            
+                            // Show categories for this day
+                            let dayExpenses = expenses.filter { dateFormatter($0.date) == date }
+                            let categoriesForDay = Dictionary(grouping: dayExpenses, by: { $0.largeCategory })
+                            
+                            HStack(spacing: 8) {
+                                ForEach(categoriesForDay.keys.sorted(), id: \.self) { category in
+                                    Text(category)
+                                        .font(.caption)
+                                        .padding(4)
+                                        .background(getCategoryColor(category).opacity(0.2))
+                                        .cornerRadius(4)
+                                }
                             }
                         }
                         
-                        // Notes if present
-                        if !expense.notes.isEmpty {
-                            Text(expense.notes)
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("¥\(String(format: "%.0f", amount))")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                            
+                            let percentage = (amount / totalAmount) * 100
+                            Text("\(Int(percentage))%")
                                 .font(.caption)
                                 .foregroundColor(.gray)
                         }
-                        
-                        // Date
-                        Text(expense.date, style: .date)
-                            .font(.caption2)
-                            .foregroundColor(.gray)
                     }
-                    
-                    Spacer()
-                    
-                    // Amount
-                    Text("¥\(String(format: "%.2f", expense.amount))")
-                        .fontWeight(.semibold)
+                    .padding(12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
                 }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 12)
-                .background(Color(.systemGray6))
-                .cornerRadius(6)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(radius: 2)
     }
     
-    // MARK: - Month Navigation Methods
+    // MARK: - Helper Functions
+    
+    private func monthString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        formatter.locale = Locale(identifier: "en_US")
+        return formatter.string(from: date)
+    }
+    
     private func previousMonth() {
         let calendar = Calendar.current
         if let newMonth = calendar.date(byAdding: .month, value: -1, to: selectedMonth) {
@@ -258,6 +278,75 @@ struct OutputView: View {
         if let newMonth = calendar.date(byAdding: .month, value: 1, to: selectedMonth) {
             selectedMonth = newMonth
         }
+    }
+    
+    private func dateFormatter(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd"
+        return formatter.string(from: date)
+    }
+    
+    private func dateStringToDate(_ dateString: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd"
+        return formatter.date(from: dateString)
+    }
+    
+    private func getCategoryColor(_ category: String) -> Color {
+        switch category {
+        case "住宅": return .orange
+        case "光熱費": return .yellow
+        case "食費": return .green
+        case "外出": return .red
+        case "交通費": return .blue
+        case "美容": return .pink
+        case "教育": return .purple
+        case "医療": return .red
+        case "娯楽": return .purple
+        case "買い物": return .pink
+        default: return .gray
+        }
+    }
+    
+    private func calculateAngle(
+        for index: Int,
+        categories: [(category: String, amount: Double)],
+        total: Double
+    ) -> (start: Angle, end: Angle) {
+        let startAngle = categories.prefix(index).reduce(0.0) { sum, item in
+            sum + (item.amount / total) * 360
+        }
+        let endAngle = startAngle + (categories[index].amount / total) * 360
+        
+        return (
+            start: .degrees(startAngle - 90),
+            end: .degrees(endAngle - 90)
+        )
+    }
+}
+
+// MARK: - Pie Slice Shape
+struct PieSlice: Shape {
+    let startAngle: Angle
+    let endAngle: Angle
+    let color: Color
+    
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        
+        path.move(to: center)
+        path.addArc(
+            center: center,
+            radius: radius,
+            startAngle: startAngle,
+            endAngle: endAngle,
+            clockwise: false
+        )
+        path.closeSubpath()
+        
+        return path
     }
 }
 
