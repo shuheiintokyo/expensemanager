@@ -1,86 +1,39 @@
-//
-//  ContentView.swift
-//  ExpenseManager
-//
-//  Created by Shuhei Kinugasa on 2025/11/16.
-//
-
 import SwiftUI
-import CoreData
+
+// MARK: - ContentView (Main Tab Navigation)
+// ============================================
+// This is the root view that manages three tabs
+// KEY CONCEPT: @State for tab selection
+// @State = SwiftUI's way to manage LOCAL state (only this view cares about it)
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
-
+    @State private var selectedTab = 0
+    
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
-                    }
+        // TabView creates the bottom tab bar
+        // selection: binding connects to @State selectedTab
+        TabView(selection: $selectedTab) {
+            
+            // TAB 1: Input View (Add expenses)
+            InputView()
+                .tabItem {
+                    Label("入力", systemImage: "plus.circle.fill")
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
+                .tag(0)
+            
+            // TAB 2: Output View (View analytics)
+            OutputView()
+                .tabItem {
+                    Label("統計", systemImage: "chart.bar.fill")
                 }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
+                .tag(1)
+            
+            // TAB 3: Settings View (Manage categories)
+            SettingsView()
+                .tabItem {
+                    Label("設定", systemImage: "gear")
                 }
-            }
-            Text("Select an item")
+                .tag(2)
         }
     }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-}
-
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
-
-#Preview {
-    ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }
