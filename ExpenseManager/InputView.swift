@@ -6,7 +6,7 @@
 //  1. @State for form input management
 //  2. @Binding to connect UI controls to state
 //  3. Date selection
-//  4. Picker for category selection
+//  4. Picker for hierarchical category selection (large → medium)
 //  5. TextField for amount and notes input
 //
 
@@ -17,62 +17,71 @@ struct InputView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
     
     // MARK: - Form State Variables
-    // @State creates local state that SwiftUI watches
-    // When these change, the view automatically re-renders
     @State private var amount: String = ""
-    @State private var selectedCategory: String = ""
+    @State private var selectedLargeCategory: String = ""
+    @State private var selectedMediumCategory: String = ""
     @State private var selectedDate: Date = Date()
     @State private var notes: String = ""
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
     
+    // MARK: - Computed Properties
+    private var availableLargeCategories: [String] {
+        Array(Set(dataManager.categories.map { $0.largeClass })).sorted()
+    }
+    
+    private var availableMediumCategories: [ExpenseCategory] {
+        guard !selectedLargeCategory.isEmpty else { return [] }
+        return dataManager.categories
+            .filter { $0.largeClass == selectedLargeCategory }
+            .sorted { $0.mediumClass < $1.mediumClass }
+    }
+    
     var body: some View {
         NavigationView {
             Form {
                 // MARK: - Amount Section
-                Section(header: Text("Amount")) {
-                    // MARK: - TextField Binding Explanation
-                    // $amount creates a Binding<String>
-                    // The $ symbol is syntactic sugar for Binding()
-                    // This two-way binding means:
-                    // - User types → amount updates → view redraws
-                    // - amount changes → text field updates
-                    TextField("Enter amount", text: $amount)
+                Section(header: Text("金額")) {
+                    TextField("金額を入力", text: $amount)
                         .keyboardType(.decimalPad)
                 }
                 
-                // MARK: - Category Section
-                Section(header: Text("Category")) {
-                    // MARK: - Picker Explanation
-                    // Picker provides a selector
-                    // $selectedCategory binds to the selected value
-                    // ForEach loops through categories
-                    // .tag() identifies each option
-                    Picker("Select category", selection: $selectedCategory) {
-                        Text("Choose...").tag("")
-                        ForEach(dataManager.categories, id: \.id) { category in
-                            // HStack to show icon + name
-                            HStack {
-                                Text(category.icon)
-                                Text(category.name)
+                // MARK: - Large Category Section
+                Section(header: Text("大分類")) {
+                    Picker("大分類を選択", selection: $selectedLargeCategory) {
+                        Text("選択してください...").tag("")
+                        ForEach(availableLargeCategories, id: \.self) { largeClass in
+                            Text(largeClass).tag(largeClass)
+                        }
+                    }
+                    .onChange(of: selectedLargeCategory) { _ in
+                        selectedMediumCategory = ""
+                    }
+                }
+                
+                // MARK: - Medium Category Section
+                if !selectedLargeCategory.isEmpty {
+                    Section(header: Text("中分類")) {
+                        Picker("中分類を選択", selection: $selectedMediumCategory) {
+                            Text("選択してください...").tag("")
+                            ForEach(availableMediumCategories, id: \.id) { category in
+                                HStack {
+                                    Text(category.icon)
+                                    Text(category.mediumClass)
+                                }
+                                .tag(category.mediumClass)
                             }
-                            .tag(category.name)
                         }
                     }
                 }
                 
                 // MARK: - Date Section
-                Section(header: Text("Date")) {
-                    // MARK: - DatePicker
-                    // DatePicker handles date selection with native iOS UI
-                    // $selectedDate binds the selected date
-                    DatePicker("Select date", selection: $selectedDate, displayedComponents: .date)
+                Section(header: Text("日付")) {
+                    DatePicker("日付を選択", selection: $selectedDate, displayedComponents: .date)
                 }
                 
                 // MARK: - Notes Section
-                Section(header: Text("Notes")) {
-                    // MARK: - TextEditor for multiline input
-                    // Similar to TextField but allows multiple lines
+                Section(header: Text("メモ")) {
                     TextEditor(text: $notes)
                         .frame(height: 100)
                 }
@@ -80,15 +89,15 @@ struct InputView: View {
                 // MARK: - Submit Button
                 Section {
                     Button(action: addExpense) {
-                        Text("Add Expense")
+                        Text("支出を追加")
                             .frame(maxWidth: .infinity)
                             .foregroundColor(.white)
                     }
                     .listRowBackground(Color.blue)
                 }
             }
-            .navigationTitle("Add Expense")
-            .alert("Input Error", isPresented: $showAlert) {
+            .navigationTitle("支出を追加")
+            .alert("入力エラー", isPresented: $showAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(alertMessage)
@@ -99,46 +108,49 @@ struct InputView: View {
     // MARK: - Business Logic
     private func addExpense() {
         // MARK: - Validation
-        // Check if required fields are filled
         guard !amount.isEmpty else {
-            alertMessage = "Please enter an amount"
+            alertMessage = "金額を入力してください"
             showAlert = true
             return
         }
         
         guard let amountDouble = Double(amount) else {
-            alertMessage = "Please enter a valid amount"
+            alertMessage = "有効な金額を入力してください"
             showAlert = true
             return
         }
         
-        guard !selectedCategory.isEmpty else {
-            alertMessage = "Please select a category"
+        guard !selectedLargeCategory.isEmpty else {
+            alertMessage = "大分類を選択してください"
+            showAlert = true
+            return
+        }
+        
+        guard !selectedMediumCategory.isEmpty else {
+            alertMessage = "中分類を選択してください"
             showAlert = true
             return
         }
         
         // MARK: - Create and Save Expense
-        // Create new ExpenseItem with validated data
         let expense = ExpenseItem(
             amount: amountDouble,
-            category: selectedCategory,
+            category: selectedMediumCategory,
+            largeCategory: selectedLargeCategory,
             date: selectedDate,
             notes: notes
         )
         
-        // Add to data manager (which saves to UserDefaults)
         dataManager.addExpense(expense)
         
         // MARK: - Reset Form
-        // Clear all fields for next input
         amount = ""
-        selectedCategory = ""
+        selectedLargeCategory = ""
+        selectedMediumCategory = ""
         selectedDate = Date()
         notes = ""
         
-        // Show confirmation
-        alertMessage = "Expense added successfully!"
+        alertMessage = "支出が追加されました！"
         showAlert = true
     }
 }

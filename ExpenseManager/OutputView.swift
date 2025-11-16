@@ -100,6 +100,7 @@ struct OutputView: View {
     private var sortedLargeCategories: [(category: String, amount: Double)] {
         expensesByLargeCategory
             .sorted { $0.value > $1.value }
+            .map { (category: $0.key, amount: $0.value) }
     }
     
     private var expensesByDay: [String: Double] {
@@ -123,6 +124,7 @@ struct OutputView: View {
                 }
                 return dateAObj < dateBObj
             }
+            .map { (date: $0.key, amount: $0.value) }
     }
     
     // MARK: - Pie Chart Section
