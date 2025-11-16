@@ -1,57 +1,131 @@
 //
-//  SettingsView.swift
+//  SettingsView.swift (iPad Responsive Version)
 //  ExpenseManager
 //
-//  This view demonstrates:
-//  1. Hierarchical category management (Large Class → Medium Class)
-//  2. Grouped category display
-//  3. Adding new categories with hierarchy
-//  4. Deleting categories
-//  5. Color and icon selection
-//  6. Full dark mode support
+//  Features:
+//  1. Responsive layout for iPad and iPhone
+//  2. Multi-column layout for iPad
+//  3. Adaptive category list display
+//  4. Full dark mode support
 //
 
 import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Environment(\.verticalSizeClass) var verticalSizeClass
     
-    // MARK: - Modal State
     @State private var showAddCategorySheet: Bool = false
+    
+    // MARK: - Responsive Layout Detection
+    private var isIPad: Bool {
+        horizontalSizeClass == .regular && verticalSizeClass == .regular
+    }
     
     var body: some View {
         NavigationView {
+            if isIPad {
+                // MARK: - iPad Layout
+                iPadLayout
+            } else {
+                // MARK: - iPhone Layout
+                iPhoneLayout
+            }
+        }
+    }
+    
+    // MARK: - iPhone Layout
+    private var iPhoneLayout: some View {
+        VStack {
+            List {
+                ForEach(getLargeCategories(), id: \.self) { largeClass in
+                    Section(header: Text(largeClass).font(.headline)) {
+                        let mediumCategories = getMediumCategories(for: largeClass)
+                        
+                        ForEach(Array(mediumCategories.enumerated()), id: \.element.id) { index, category in
+                            HStack(spacing: 12) {
+                                Text(category.icon)
+                                    .font(.title2)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(category.mediumClass)
+                                        .fontWeight(.semibold)
+                                    
+                                    Text("色: \(category.color)")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                                
+                                Spacer()
+                                
+                                Circle()
+                                    .fill(colorFromString(category.color))
+                                    .frame(width: 16, height: 16)
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        .onDelete { indexSet in
+                            deleteCategory(from: largeClass, at: indexSet)
+                        }
+                    }
+                }
+            }
+            
+            // Add Button
+            Button(action: { showAddCategorySheet = true }) {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                    Text("カテゴリーを追加")
+                        .fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(12)
+                .foregroundColor(.white)
+                .background(Color.blue)
+                .cornerRadius(8)
+            }
+            .padding()
+        }
+        .navigationTitle("設定")
+        .sheet(isPresented: $showAddCategorySheet) {
+            AddCategoryView(isPresented: $showAddCategorySheet)
+                .environmentObject(dataManager)
+        }
+    }
+    
+    // MARK: - iPad Layout (Two Columns)
+    private var iPadLayout: some View {
+        HStack(spacing: 0) {
+            // Left: Category List
             VStack {
                 List {
-                    // MARK: - Group by Large Category
                     ForEach(getLargeCategories(), id: \.self) { largeClass in
                         Section(header: Text(largeClass).font(.headline)) {
                             let mediumCategories = getMediumCategories(for: largeClass)
                             
                             ForEach(Array(mediumCategories.enumerated()), id: \.element.id) { index, category in
                                 HStack(spacing: 12) {
-                                    // MARK: - Category Icon
                                     Text(category.icon)
-                                        .font(.title2)
+                                        .font(.title3)
                                     
-                                    // MARK: - Category Info
-                                    VStack(alignment: .leading, spacing: 4) {
+                                    VStack(alignment: .leading, spacing: 2) {
                                         Text(category.mediumClass)
+                                            .font(.body)
                                             .fontWeight(.semibold)
                                         
-                                        Text("色: \(category.color)")
+                                        Text(largeClass)
                                             .font(.caption)
                                             .foregroundColor(.gray)
                                     }
                                     
                                     Spacer()
                                     
-                                    // MARK: - Color Indicator
                                     Circle()
                                         .fill(colorFromString(category.color))
-                                        .frame(width: 16, height: 16)
+                                        .frame(width: 12, height: 12)
                                 }
-                                .padding(.vertical, 8)
+                                .padding(.vertical, 6)
                             }
                             .onDelete { indexSet in
                                 deleteCategory(from: largeClass, at: indexSet)
@@ -60,11 +134,11 @@ struct SettingsView: View {
                     }
                 }
                 
-                // MARK: - Add Button
+                // Add Button
                 Button(action: { showAddCategorySheet = true }) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                        Text("カテゴリーを追加")
+                        Text("追加")
                             .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
@@ -75,13 +149,101 @@ struct SettingsView: View {
                 }
                 .padding()
             }
-            .navigationTitle("設定")
+            .frame(maxWidth: 400)
             
-            // MARK: - Sheet Modifier
-            .sheet(isPresented: $showAddCategorySheet) {
-                AddCategoryView(isPresented: $showAddCategorySheet)
-                    .environmentObject(dataManager)
+            Divider()
+            
+            // Right: Statistics & Info
+            VStack(alignment: .leading, spacing: 20) {
+                Text("カテゴリー統計")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .padding(.horizontal)
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(getLargeCategories(), id: \.self) { largeClass in
+                            let mediumCategories = getMediumCategories(for: largeClass)
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text(largeClass)
+                                        .font(.headline)
+                                        .fontWeight(.semibold)
+                                    
+                                    Spacer()
+                                    
+                                    Text("\(mediumCategories.count)個")
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    ForEach(mediumCategories.prefix(3), id: \.id) { category in
+                                        HStack(spacing: 8) {
+                                            Text(category.icon)
+                                                .frame(width: 24)
+                                            Text(category.mediumClass)
+                                                .font(.caption)
+                                            Spacer()
+                                            Circle()
+                                                .fill(colorFromString(category.color))
+                                                .frame(width: 8, height: 8)
+                                        }
+                                    }
+                                    
+                                    if mediumCategories.count > 3 {
+                                        Text("他 \(mediumCategories.count - 3) 個")
+                                            .font(.caption2)
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                                .padding(8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(6)
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                // Info Section
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("情報")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    HStack {
+                        Text("全カテゴリー数")
+                        Spacer()
+                        Text("\(dataManager.categories.count)")
+                            .fontWeight(.semibold)
+                    }
+                    .font(.body)
+                    
+                    HStack {
+                        Text("大分類数")
+                        Spacer()
+                        Text("\(getLargeCategories().count)")
+                            .fontWeight(.semibold)
+                    }
+                    .font(.body)
+                }
+                .padding(12)
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+                .padding(.horizontal)
+                
+                Spacer()
             }
+            .padding(.vertical)
+        }
+        .navigationTitle("設定")
+        .sheet(isPresented: $showAddCategorySheet) {
+            AddCategoryView(isPresented: $showAddCategorySheet)
+                .environmentObject(dataManager)
         }
     }
     
@@ -115,8 +277,9 @@ struct SettingsView: View {
 struct AddCategoryView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
     @Binding var isPresented: Bool
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Environment(\.verticalSizeClass) var verticalSizeClass
     
-    // MARK: - Form State
     @State private var selectedLargeClass: String = "その他"
     @State private var mediumClassName: String = ""
     @State private var selectedIcon: String = "📦"
@@ -124,7 +287,6 @@ struct AddCategoryView: View {
     @State private var showError: Bool = false
     @State private var errorMessage: String = ""
     
-    // MARK: - Available Options
     let availableIcons = [
         "🏠", "💰", "🚗", "🍽️", "🛒", "⚡", "💡", "💧", "🔥", "❄️",
         "👕", "👔", "👗", "👞", "🎒", "🚌", "🚆", "✈️", "🚢", "🚕",
@@ -136,155 +298,232 @@ struct AddCategoryView: View {
     
     let availableColors = ["red", "blue", "green", "orange", "yellow", "pink", "purple", "gray"]
     
+    private var isIPad: Bool {
+        horizontalSizeClass == .regular && verticalSizeClass == .regular
+    }
+    
     var body: some View {
         NavigationView {
-            Form {
-                // MARK: - Large Class Selection
-                Section(header: Text("大分類 (Large Category)")) {
-                    Picker("大分類を選択", selection: $selectedLargeClass) {
-                        ForEach(getLargeCategories(), id: \.self) { largeClass in
-                            Text(largeClass).tag(largeClass)
-                        }
+            if isIPad {
+                // iPad: Two-column layout
+                HStack(spacing: 0) {
+                    // Left: Form
+                    VStack {
+                        formContent
                     }
-                    .onChange(of: selectedLargeClass) { _ in
-                        mediumClassName = ""
-                    }
-                }
-                
-                // MARK: - Medium Class Name
-                Section(header: Text("中分類 (Medium Category)")) {
-                    TextField("カテゴリー名を入力", text: $mediumClassName)
-                }
-                
-                // MARK: - Icon Selection
-                Section(header: Text("アイコン (Icon)")) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        let columns = [GridItem(.adaptive(minimum: 50), spacing: 8)]
-                        
-                        LazyVGrid(columns: columns, spacing: 8) {
-                            ForEach(availableIcons, id: \.self) { icon in
-                                Button(action: { selectedIcon = icon }) {
-                                    Text(icon)
-                                        .font(.title)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 50)
-                                        .background(
-                                            selectedIcon == icon
-                                                ? Color.blue.opacity(0.2)
-                                                : Color(.systemGray6)
-                                        )
-                                        .cornerRadius(8)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(
-                                                    selectedIcon == icon ? Color.blue : Color.clear,
-                                                    lineWidth: 2
-                                                )
-                                        )
-                                }
-                            }
-                        }
-                        
-                        Text("選択中: \(selectedIcon)")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-                }
-                
-                // MARK: - Color Selection with Preview
-                Section(header: Text("色 (Color)")) {
-                    VStack(spacing: 12) {
-                        Picker("色を選択", selection: $selectedColor) {
-                            ForEach(availableColors, id: \.self) { color in
-                                HStack {
-                                    Text(color.capitalized)
-                                    Circle()
-                                        .fill(colorFromString(color))
-                                        .frame(width: 16, height: 16)
-                                }
-                                .tag(color)
-                            }
-                        }
-                        
-                        // MARK: - Preview Card
-                        VStack(spacing: 12) {
-                            Text("プレビュー (Preview)")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                            
-                            HStack {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack(spacing: 8) {
-                                        Text(selectedIcon)
-                                            .font(.title2)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(mediumClassName.isEmpty ? "New Category" : mediumClassName)
-                                                .fontWeight(.semibold)
-                                            Text(selectedLargeClass)
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                        }
-                                    }
-                                    
-                                    HStack {
-                                        Text("色: \(selectedColor.capitalized)")
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
-                                        
-                                        Circle()
-                                            .fill(colorFromString(selectedColor))
-                                            .frame(width: 12, height: 12)
-                                    }
-                                }
-                                
-                                Spacer()
-                                
-                                Circle()
-                                    .fill(colorFromString(selectedColor))
-                                    .frame(width: 20, height: 20)
-                            }
-                            .padding(12)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
-                        }
-                    }
-                }
-                
-                // MARK: - Action Buttons
-                Section {
-                    Button(action: addCategory) {
-                        HStack {
-                            Spacer()
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("カテゴリーを追加")
-                                .fontWeight(.semibold)
-                            Spacer()
-                        }
-                        .foregroundColor(.white)
-                    }
-                    .listRowBackground(Color.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding()
                     
-                    Button(action: { isPresented = false }) {
-                        HStack {
-                            Spacer()
-                            Image(systemName: "xmark.circle.fill")
-                            Text("キャンセル")
-                                .fontWeight(.semibold)
-                            Spacer()
-                        }
-                        .foregroundColor(.white)
+                    Divider()
+                    
+                    // Right: Preview
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("プレビュー")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        previewCard
+                        
+                        Spacer()
                     }
-                    .listRowBackground(Color.gray)
+                    .frame(maxWidth: 300)
+                    .padding()
+                    .background(Color(.systemGray6))
                 }
-            }
-            .navigationTitle("カテゴリーを追加")
-            .navigationBarTitleDisplayMode(.inline)
-            .alert("エラー", isPresented: $showError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(errorMessage)
+                .navigationTitle("カテゴリーを追加")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("キャンセル") { isPresented = false }
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("追加", action: addCategory)
+                            .fontWeight(.semibold)
+                    }
+                }
+            } else {
+                // iPhone: Scrollable form
+                Form {
+                    formContent
+                }
+                .navigationTitle("カテゴリーを追加")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("キャンセル") { isPresented = false }
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("追加", action: addCategory)
+                            .fontWeight(.semibold)
+                    }
+                }
             }
         }
+        .alert("エラー", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+    
+    // MARK: - Form Content
+    private var formContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Large Class Selection
+            VStack(alignment: .leading, spacing: 8) {
+                Text("大分類 (Large Category)")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Picker("大分類を選択", selection: $selectedLargeClass) {
+                    ForEach(getLargeCategories(), id: \.self) { largeClass in
+                        Text(largeClass).tag(largeClass)
+                    }
+                }
+                .pickerStyle(.menu)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+                .onChange(of: selectedLargeClass) { _ in
+                    mediumClassName = ""
+                }
+            }
+            
+            // Medium Class Name
+            VStack(alignment: .leading, spacing: 8) {
+                Text("中分類 (Medium Category)")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                TextField("カテゴリー名を入力", text: $mediumClassName)
+                    .textFieldStyle(.roundedBorder)
+            }
+            
+            // Icon Selection
+            VStack(alignment: .leading, spacing: 8) {
+                Text("アイコン (Icon)")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                let columns = [GridItem(.adaptive(minimum: 50), spacing: 8)]
+                
+                LazyVGrid(columns: columns, spacing: 8) {
+                    ForEach(availableIcons, id: \.self) { icon in
+                        Button(action: { selectedIcon = icon }) {
+                            Text(icon)
+                                .font(.title)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
+                                .background(
+                                    selectedIcon == icon
+                                        ? Color.blue.opacity(0.2)
+                                        : Color(.systemGray6)
+                                )
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(
+                                            selectedIcon == icon ? Color.blue : Color.clear,
+                                            lineWidth: 2
+                                        )
+                                )
+                        }
+                    }
+                }
+                
+                Text("選択中: \(selectedIcon)")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            
+            // Color Selection
+            VStack(alignment: .leading, spacing: 8) {
+                Text("色 (Color)")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Picker("色を選択", selection: $selectedColor) {
+                    ForEach(availableColors, id: \.self) { color in
+                        HStack {
+                            Text(color.capitalized)
+                            Circle()
+                                .fill(colorFromString(color))
+                                .frame(width: 16, height: 16)
+                        }
+                        .tag(color)
+                    }
+                }
+                .pickerStyle(.menu)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+            }
+            
+            // Action Buttons (iPhone only)
+            if !isIPad {
+                HStack(spacing: 12) {
+                    Button(action: { isPresented = false }) {
+                        Text("キャンセル")
+                            .frame(maxWidth: .infinity)
+                            .padding(12)
+                            .foregroundColor(.white)
+                            .background(Color.gray)
+                            .cornerRadius(8)
+                    }
+                    
+                    Button(action: addCategory) {
+                        Text("追加")
+                            .frame(maxWidth: .infinity)
+                            .padding(12)
+                            .foregroundColor(.white)
+                            .background(Color.blue)
+                            .cornerRadius(8)
+                    }
+                }
+            }
+            
+            Spacer()
+        }
+    }
+    
+    // MARK: - Preview Card
+    private var previewCard: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                Text(selectedIcon)
+                    .font(.title2)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(mediumClassName.isEmpty ? "New Category" : mediumClassName)
+                        .fontWeight(.semibold)
+                    Text(selectedLargeClass)
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+            }
+            
+            Divider()
+            
+            HStack {
+                Text("色: \(selectedColor.capitalized)")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                Spacer()
+                
+                Circle()
+                    .fill(colorFromString(selectedColor))
+                    .frame(width: 16, height: 16)
+            }
+        }
+        .padding(12)
+        .background(Color(.systemBackground))
+        .cornerRadius(8)
+        .border(Color.blue, width: 1)
     }
     
     // MARK: - Add Category Logic
@@ -295,7 +534,6 @@ struct AddCategoryView: View {
             return
         }
         
-        // Check for duplicates within the same large class
         let existingInClass = dataManager.categories.filter {
             $0.largeClass == selectedLargeClass && $0.mediumClass.lowercased() == mediumClassName.lowercased()
         }
