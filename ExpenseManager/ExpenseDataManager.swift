@@ -1,15 +1,13 @@
 import Foundation
+import Combine
 
 // MARK: - Data Manager using UserDefaults
-// This handles all local storage operations
-// UserDefaults is simple key-value storage perfect for small app data
-// For large datasets, you'd use CoreData or SQLite, but UserDefaults is great for learning
+// Simple key-value storage for expenses and categories
+// Perfect for learning SwiftUI without Core Data complexity
 
 class ExpenseDataManager: ObservableObject {
-    // MARK: Published Properties
-    // @Published makes SwiftUI automatically update the UI when these change
-    // ObservableObject allows this to be used with @StateObject
-    
+    // MARK: - Published Properties
+    // @Published makes SwiftUI update UI when these change
     @Published var expenses: [ExpenseItem] = []
     @Published var categories: [ExpenseCategory] = []
     
@@ -17,32 +15,29 @@ class ExpenseDataManager: ObservableObject {
     private let categoriesKey = "categoriesData"
     
     init() {
-        // Load data when the app starts
         loadExpenses()
         loadCategories()
     }
     
     // MARK: - Expense Operations
     
-    /// Add a new expense and immediately save to UserDefaults
     func addExpense(_ expense: ExpenseItem) {
         expenses.append(expense)
         saveExpenses()
     }
     
-    /// Delete an expense by removing it from array and saving
     func deleteExpense(at index: Int) {
+        guard index >= 0 && index < expenses.count else { return }
         expenses.remove(at: index)
         saveExpenses()
     }
     
-    /// Update an existing expense
     func updateExpense(_ expense: ExpenseItem, at index: Int) {
+        guard index >= 0 && index < expenses.count else { return }
         expenses[index] = expense
         saveExpenses()
     }
     
-    /// Get all expenses for a specific month
     func getExpensesForMonth(_ month: Date) -> [ExpenseItem] {
         let calendar = Calendar.current
         return expenses.filter { expense in
@@ -50,7 +45,6 @@ class ExpenseDataManager: ObservableObject {
         }
     }
     
-    /// Get total spending for a category in a month
     func getCategoryTotal(category: String, for month: Date) -> Double {
         let monthExpenses = getExpensesForMonth(month)
         return monthExpenses
@@ -66,11 +60,13 @@ class ExpenseDataManager: ObservableObject {
     }
     
     func deleteCategory(at index: Int) {
+        guard index >= 0 && index < categories.count else { return }
         categories.remove(at: index)
         saveCategories()
     }
     
     func updateCategory(_ category: ExpenseCategory, at index: Int) {
+        guard index >= 0 && index < categories.count else { return }
         categories[index] = category
         saveCategories()
     }
@@ -78,40 +74,38 @@ class ExpenseDataManager: ObservableObject {
     // MARK: - Persistence Methods
     
     private func saveExpenses() {
-        // Convert our expense structs to JSON data
-        let encodedData = try? JSONEncoder().encode(
-            expenses.map { (id: $0.id, amount: $0.amount, category: $0.category, date: $0.date, notes: $0.notes) }
-        )
-        
-        // Store the JSON data in UserDefaults
-        UserDefaults.standard.set(encodedData, forKey: expensesKey)
-        print("✅ Expenses saved")
+        do {
+            let encodedData = try JSONEncoder().encode(expenses)
+            UserDefaults.standard.set(encodedData, forKey: expensesKey)
+            print("✅ Expenses saved: \(expenses.count) items")
+        } catch {
+            print("❌ Error saving expenses: \(error)")
+        }
     }
     
     private func loadExpenses() {
-        // Retrieve JSON data from UserDefaults
         guard let data = UserDefaults.standard.data(forKey: expensesKey) else {
-            print("No expenses found, starting fresh")
+            print("📝 No expenses found, starting fresh")
             return
         }
         
-        // Decode JSON back into ExpenseItem objects
         do {
-            let decoded = try JSONDecoder().decode(
-                [(id: UUID, amount: Double, category: String, date: Date, notes: String)].self,
-                from: data
-            )
-            expenses = decoded.map { ExpenseItem(id: $0.id, amount: $0.amount, category: $0.category, date: $0.date, notes: $0.notes) }
+            expenses = try JSONDecoder().decode([ExpenseItem].self, from: data)
             print("✅ Expenses loaded: \(expenses.count) items")
         } catch {
             print("❌ Error loading expenses: \(error)")
+            expenses = []
         }
     }
     
     private func saveCategories() {
-        let encodedData = try? JSONEncoder().encode(categories)
-        UserDefaults.standard.set(encodedData, forKey: categoriesKey)
-        print("✅ Categories saved")
+        do {
+            let encodedData = try JSONEncoder().encode(categories)
+            UserDefaults.standard.set(encodedData, forKey: categoriesKey)
+            print("✅ Categories saved: \(categories.count) items")
+        } catch {
+            print("❌ Error saving categories: \(error)")
+        }
     }
     
     private func loadCategories() {
@@ -119,6 +113,7 @@ class ExpenseDataManager: ObservableObject {
             // First time? Load default categories
             categories = defaultCategories
             saveCategories()
+            print("📝 Loaded default categories")
             return
         }
         
