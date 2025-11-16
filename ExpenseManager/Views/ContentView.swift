@@ -35,5 +35,14 @@ struct ContentView: View {
                 }
                 .tag(2)
         }
+        .onChange(of: selectedTab) { _ in
+            // Dismiss keyboard when changing tabs
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
     }
+}
+
+#Preview {
+    ContentView()
+        .environmentObject(ExpenseDataManager())
 }

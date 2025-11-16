@@ -3,16 +3,18 @@
 //  ExpenseManager
 //
 //  This view demonstrates:
-//  1. Pie chart visualization by large category
+//  1. Pie chart visualization by large category (fixed for dark mode)
 //  2. Daily expense summary
 //  3. Hierarchical category breakdown
 //  4. Month navigation
+//  5. Full dark mode support
 //
 
 import SwiftUI
 
 struct OutputView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
+    @Environment(\.colorScheme) var colorScheme
     
     // MARK: - State for Month Selection
     @State private var selectedMonth: Date = {
@@ -140,9 +142,13 @@ struct OutputView: View {
                     Text("合計")
                         .foregroundColor(.gray)
                     Spacer()
-                    Text("¥\(String(format: "%.0f", totalAmount))")
-                        .fontWeight(.bold)
-                        .font(.title3)
+                    HStack(spacing: 2) {
+                        Text("¥")
+                            .font(.caption)
+                        Text(formatCurrency(totalAmount))
+                            .fontWeight(.bold)
+                            .font(.title3)
+                    }
                 }
             }
             .padding(12)
@@ -187,9 +193,14 @@ struct OutputView: View {
                             
                             Spacer()
                             
-                            Text("¥\(String(format: "%.0f", item.amount))")
-                                .font(.caption)
-                                .fontWeight(.semibold)
+                            HStack(spacing: 1) {
+                                Text("¥")
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                                Text(formatCurrency(item.amount))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
                         }
                     }
                 }
@@ -199,7 +210,7 @@ struct OutputView: View {
             .cornerRadius(8)
         }
         .padding(12)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -237,9 +248,14 @@ struct OutputView: View {
                         Spacer()
                         
                         VStack(alignment: .trailing, spacing: 4) {
-                            Text("¥\(String(format: "%.0f", amount))")
-                                .font(.headline)
-                                .fontWeight(.bold)
+                            HStack(spacing: 2) {
+                                Text("¥")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                Text(formatCurrency(amount))
+                                    .font(.headline)
+                                    .fontWeight(.bold)
+                            }
                             
                             let percentage = (amount / totalAmount) * 100
                             Text("\(Int(percentage))%")
@@ -254,7 +270,7 @@ struct OutputView: View {
             }
         }
         .padding(12)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(radius: 2)
     }
@@ -294,18 +310,26 @@ struct OutputView: View {
         return formatter.date(from: dateString)
     }
     
+    private func formatCurrency(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.groupingSeparator = ","
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "0"
+    }
+    
     private func getCategoryColor(_ category: String) -> Color {
         switch category {
-        case "住宅": return .orange
-        case "光熱費": return .yellow
-        case "食費": return .green
-        case "外出": return .red
-        case "交通費": return .blue
-        case "美容": return .pink
-        case "教育": return .purple
-        case "医療": return .red
-        case "娯楽": return .purple
-        case "買い物": return .pink
+        case "住宅": return Color(red: 1.0, green: 0.6, blue: 0.0)  // Orange
+        case "光熱費": return Color(red: 1.0, green: 0.85, blue: 0.0)  // Yellow
+        case "食費": return Color(red: 0.2, green: 0.8, blue: 0.2)  // Green
+        case "外出": return Color(red: 1.0, green: 0.3, blue: 0.3)  // Red
+        case "交通費": return Color(red: 0.0, green: 0.5, blue: 1.0)  // Blue
+        case "美容": return Color(red: 1.0, green: 0.4, blue: 0.7)  // Pink
+        case "教育": return Color(red: 0.6, green: 0.4, blue: 1.0)  // Purple
+        case "医療": return Color(red: 1.0, green: 0.3, blue: 0.3)  // Red
+        case "娯楽": return Color(red: 0.6, green: 0.4, blue: 1.0)  // Purple
+        case "買い物": return Color(red: 1.0, green: 0.4, blue: 0.7)  // Pink
         default: return .gray
         }
     }
@@ -327,7 +351,7 @@ struct OutputView: View {
     }
 }
 
-// MARK: - Pie Slice Shape
+// MARK: - Pie Slice Shape (Fixed for Dark Mode)
 struct PieSlice: Shape {
     let startAngle: Angle
     let endAngle: Angle
@@ -349,6 +373,13 @@ struct PieSlice: Shape {
         path.closeSubpath()
         
         return path
+    }
+}
+
+extension PieSlice: View {
+    var body: some View {
+        self
+            .fill(color)
     }
 }
 

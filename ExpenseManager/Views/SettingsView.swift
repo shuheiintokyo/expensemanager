@@ -8,6 +8,7 @@
 //  3. Adding new categories with hierarchy
 //  4. Deleting categories
 //  5. Color and icon selection
+//  6. Full dark mode support
 //
 
 import SwiftUI
@@ -97,13 +98,13 @@ struct SettingsView: View {
     // MARK: - Color Helper
     private func colorFromString(_ color: String) -> Color {
         switch color.lowercased() {
-        case "red": return .red
-        case "blue": return .blue
-        case "green": return .green
-        case "orange": return .orange
-        case "yellow": return .yellow
-        case "pink": return .pink
-        case "purple": return .purple
+        case "red": return Color(red: 1.0, green: 0.3, blue: 0.3)
+        case "blue": return Color(red: 0.0, green: 0.5, blue: 1.0)
+        case "green": return Color(red: 0.2, green: 0.8, blue: 0.2)
+        case "orange": return Color(red: 1.0, green: 0.6, blue: 0.0)
+        case "yellow": return Color(red: 1.0, green: 0.85, blue: 0.0)
+        case "pink": return Color(red: 1.0, green: 0.4, blue: 0.7)
+        case "purple": return Color(red: 0.6, green: 0.4, blue: 1.0)
         case "gray": return .gray
         default: return .blue
         }
@@ -319,13 +320,13 @@ struct AddCategoryView: View {
     // MARK: - Color Helper
     private func colorFromString(_ color: String) -> Color {
         switch color.lowercased() {
-        case "red": return .red
-        case "blue": return .blue
-        case "green": return .green
-        case "orange": return .orange
-        case "yellow": return .yellow
-        case "pink": return .pink
-        case "purple": return .purple
+        case "red": return Color(red: 1.0, green: 0.3, blue: 0.3)
+        case "blue": return Color(red: 0.0, green: 0.5, blue: 1.0)
+        case "green": return Color(red: 0.2, green: 0.8, blue: 0.2)
+        case "orange": return Color(red: 1.0, green: 0.6, blue: 0.0)
+        case "yellow": return Color(red: 1.0, green: 0.85, blue: 0.0)
+        case "pink": return Color(red: 1.0, green: 0.4, blue: 0.7)
+        case "purple": return Color(red: 0.6, green: 0.4, blue: 1.0)
         case "gray": return .gray
         default: return .blue
         }
