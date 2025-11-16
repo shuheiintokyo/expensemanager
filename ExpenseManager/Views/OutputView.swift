@@ -1,8 +1,8 @@
 //
-//  OutputView.swift (iPad - GeometryReader Dynamic)
+//  OutputView.swift (iPad - Same GeometryReader Pattern as InputView)
 //  ExpenseManager
 //
-//  Uses GeometryReader for truly responsive sizing on iPad
+//  Uses same GeometryReader approach as InputView for consistent full-width layout
 //
 
 import SwiftUI
@@ -27,17 +27,21 @@ struct OutputView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Month Navigation
+                // Month Navigation Header
                 HStack {
                     Button(action: previousMonth) {
                         Image(systemName: "chevron.left")
                             .font(.headline)
                     }
+                    
                     Spacer()
+                    
                     Text(monthString(selectedMonth))
                         .font(.headline)
                         .fontWeight(.semibold)
+                    
                     Spacer()
+                    
                     Button(action: nextMonth) {
                         Image(systemName: "chevron.right")
                             .font(.headline)
@@ -61,19 +65,23 @@ struct OutputView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color(.systemBackground))
                 } else if isIPad {
-                    // iPad: Use GeometryReader for full width
+                    // iPad: Same GeometryReader pattern as InputView
                     GeometryReader { geometry in
+                        let columnWidth = geometry.size.width / 2
+                        
                         HStack(spacing: 0) {
-                            // LEFT: Chart (50%)
-                            VStack(alignment: .leading, spacing: 12) {
+                            // LEFT COLUMN - 50% - Chart
+                            VStack(alignment: .leading, spacing: 16) {
                                 Text("カテゴリー別支出")
                                     .font(.headline)
                                     .fontWeight(.semibold)
                                 
+                                // Summary Card
                                 VStack(alignment: .leading, spacing: 8) {
                                     HStack {
                                         Text("合計")
                                             .foregroundColor(.gray)
+                                            .font(.body)
                                         Spacer()
                                         HStack(spacing: 2) {
                                             Text("¥")
@@ -84,14 +92,16 @@ struct OutputView: View {
                                         }
                                     }
                                 }
-                                .padding(12)
+                                .padding(16)
                                 .background(Color.blue.opacity(0.1))
-                                .cornerRadius(8)
+                                .cornerRadius(10)
                                 
-                                HStack(spacing: 16) {
+                                // Pie Chart
+                                HStack(spacing: 20) {
                                     ZStack {
                                         ForEach(Array(sortedLargeCategories.enumerated()), id: \.element.category) { index, item in
                                             let angle = calculateAngle(for: index, categories: sortedLargeCategories, total: totalAmount)
+                                            
                                             PieSlice(
                                                 startAngle: angle.start,
                                                 endAngle: angle.end,
@@ -99,16 +109,18 @@ struct OutputView: View {
                                             )
                                         }
                                     }
-                                    .frame(width: 140, height: 140)
+                                    .frame(width: 160, height: 160)
                                     
-                                    VStack(alignment: .leading, spacing: 6) {
+                                    VStack(alignment: .leading, spacing: 8) {
                                         ForEach(sortedLargeCategories, id: \.category) { item in
                                             let percentage = (item.amount / totalAmount) * 100
-                                            HStack(spacing: 6) {
+                                            
+                                            HStack(spacing: 8) {
                                                 Circle()
                                                     .fill(getCategoryColor(item.category))
                                                     .frame(width: 10, height: 10)
-                                                VStack(alignment: .leading, spacing: 1) {
+                                                
+                                                VStack(alignment: .leading, spacing: 2) {
                                                     Text(item.category)
                                                         .font(.caption)
                                                         .fontWeight(.semibold)
@@ -116,7 +128,9 @@ struct OutputView: View {
                                                         .font(.caption2)
                                                         .foregroundColor(.gray)
                                                 }
+                                                
                                                 Spacer()
+                                                
                                                 Text(formatCurrency(item.amount))
                                                     .font(.caption2)
                                                     .fontWeight(.semibold)
@@ -124,31 +138,31 @@ struct OutputView: View {
                                         }
                                     }
                                 }
-                                .padding(12)
+                                .padding(16)
                                 .background(Color(.systemGray6))
-                                .cornerRadius(8)
+                                .cornerRadius(10)
                                 
                                 Spacer()
                             }
-                            .frame(width: geometry.size.width / 2, height: geometry.size.height)
-                            .padding(12)
+                            .frame(width: columnWidth, height: geometry.size.height)
+                            .padding(20)
                             .background(Color(.systemBackground))
                             
                             // DIVIDER
                             Divider()
                                 .frame(width: 1)
                             
-                            // RIGHT: Daily List (50%)
-                            VStack(alignment: .leading, spacing: 12) {
+                            // RIGHT COLUMN - 50% - Daily List
+                            VStack(alignment: .leading, spacing: 16) {
                                 Text("日別支出")
                                     .font(.headline)
                                     .fontWeight(.semibold)
                                 
                                 ScrollView {
-                                    VStack(spacing: 8) {
+                                    VStack(spacing: 12) {
                                         ForEach(sortedDailyBreakdown, id: \.date) { date, amount in
                                             HStack {
-                                                VStack(alignment: .leading, spacing: 6) {
+                                                VStack(alignment: .leading, spacing: 8) {
                                                     Text(date)
                                                         .font(.body)
                                                         .fontWeight(.semibold)
@@ -156,18 +170,20 @@ struct OutputView: View {
                                                     let dayExpenses = expenses.filter { dateFormatter($0.date) == date }
                                                     let categoriesForDay = Dictionary(grouping: dayExpenses, by: { $0.largeCategory })
                                                     
-                                                    HStack(spacing: 6) {
+                                                    HStack(spacing: 8) {
                                                         ForEach(categoriesForDay.keys.sorted(), id: \.self) { category in
                                                             Text(category)
                                                                 .font(.caption2)
-                                                                .padding(3)
+                                                                .padding(5)
                                                                 .background(getCategoryColor(category).opacity(0.15))
-                                                                .cornerRadius(3)
+                                                                .cornerRadius(4)
                                                         }
                                                     }
                                                 }
+                                                
                                                 Spacer()
-                                                VStack(alignment: .trailing, spacing: 2) {
+                                                
+                                                VStack(alignment: .trailing, spacing: 4) {
                                                     HStack(spacing: 2) {
                                                         Text("¥")
                                                             .font(.caption2)
@@ -176,27 +192,28 @@ struct OutputView: View {
                                                             .font(.body)
                                                             .fontWeight(.bold)
                                                     }
+                                                    
                                                     let percentage = (amount / totalAmount) * 100
                                                     Text("\(Int(percentage))%")
                                                         .font(.caption2)
                                                         .foregroundColor(.gray)
                                                 }
                                             }
-                                            .padding(10)
+                                            .padding(12)
                                             .background(Color(.systemGray6))
-                                            .cornerRadius(6)
+                                            .cornerRadius(8)
                                         }
                                     }
                                 }
                             }
-                            .frame(width: geometry.size.width / 2, height: geometry.size.height)
-                            .padding(12)
+                            .frame(width: columnWidth, height: geometry.size.height)
+                            .padding(20)
                             .background(Color(.systemBackground))
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 } else {
-                    // iPhone: Vertical layout
+                    // iPhone: Vertical scroll layout
                     ScrollView {
                         VStack(spacing: 16) {
                             iPhoneChartSection
@@ -251,10 +268,12 @@ struct OutputView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(sortedLargeCategories, id: \.category) { item in
                         let percentage = (item.amount / totalAmount) * 100
+                        
                         HStack(spacing: 8) {
                             Circle()
                                 .fill(getCategoryColor(item.category))
                                 .frame(width: 10, height: 10)
+                            
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(item.category)
                                     .font(.caption)
@@ -263,7 +282,9 @@ struct OutputView: View {
                                     .font(.caption2)
                                     .foregroundColor(.gray)
                             }
+                            
                             Spacer()
+                            
                             Text(formatCurrency(item.amount))
                                 .font(.caption)
                                 .fontWeight(.semibold)
@@ -298,13 +319,15 @@ struct OutputView: View {
                                 ForEach(categoriesForDay.keys.sorted(), id: \.self) { category in
                                     Text(category)
                                         .font(.caption2)
-                                        .padding(3)
+                                        .padding(4)
                                         .background(getCategoryColor(category).opacity(0.15))
-                                        .cornerRadius(3)
+                                        .cornerRadius(4)
                                 }
                             }
                         }
+                        
                         Spacer()
+                        
                         VStack(alignment: .trailing, spacing: 4) {
                             HStack(spacing: 2) {
                                 Text("¥")
@@ -314,6 +337,7 @@ struct OutputView: View {
                                     .font(.body)
                                     .fontWeight(.bold)
                             }
+                            
                             let percentage = (amount / totalAmount) * 100
                             Text("\(Int(percentage))%")
                                 .font(.caption2)
@@ -322,7 +346,7 @@ struct OutputView: View {
                     }
                     .padding(10)
                     .background(Color(.systemGray6))
-                    .cornerRadius(6)
+                    .cornerRadius(8)
                 }
             }
         }
@@ -374,6 +398,7 @@ struct OutputView: View {
             .map { (date: $0.key, amount: $0.value) }
     }
     
+    // MARK: - Helper Functions
     private func monthString(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
@@ -440,10 +465,15 @@ struct OutputView: View {
             sum + (item.amount / total) * 360
         }
         let endAngle = startAngle + (categories[index].amount / total) * 360
-        return (start: .degrees(startAngle - 90), end: .degrees(endAngle - 90))
+        
+        return (
+            start: .degrees(startAngle - 90),
+            end: .degrees(endAngle - 90)
+        )
     }
 }
 
+// MARK: - Pie Slice Shape
 struct PieSlice: Shape {
     let startAngle: Angle
     let endAngle: Angle
@@ -453,6 +483,7 @@ struct PieSlice: Shape {
         var path = Path()
         let center = CGPoint(x: rect.midX, y: rect.midY)
         let radius = min(rect.width, rect.height) / 2
+        
         path.move(to: center)
         path.addArc(
             center: center,
@@ -462,13 +493,15 @@ struct PieSlice: Shape {
             clockwise: false
         )
         path.closeSubpath()
+        
         return path
     }
 }
 
 extension PieSlice: View {
     var body: some View {
-        self.fill(color)
+        self
+            .fill(color)
     }
 }
 

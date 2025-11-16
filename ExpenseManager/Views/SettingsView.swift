@@ -1,9 +1,8 @@
 //
-//  SettingsView.swift (iPad - GeometryReader Dynamic)
+//  SettingsView.swift (iPad - Same GeometryReader Pattern as InputView)
 //  ExpenseManager
 //
-//  Uses GeometryReader for truly responsive sizing on iPad
-//  Category management with full-width 50/50 layout
+//  Uses same GeometryReader approach as InputView for consistent full-width layout
 //
 
 import SwiftUI
@@ -88,13 +87,13 @@ struct SettingsView: View {
         }
     }
     
-    // MARK: - iPad Layout (Full Width GeometryReader)
+    // MARK: - iPad Layout (Same pattern as InputView)
     private var iPadLayout: some View {
         GeometryReader { geometry in
             let columnWidth = geometry.size.width / 2
             
             HStack(spacing: 0) {
-                // LEFT COLUMN - Category List (50%)
+                // LEFT COLUMN - 50% - Category List
                 VStack(alignment: .leading, spacing: 16) {
                     Text("設定")
                         .font(.title)
@@ -158,11 +157,11 @@ struct SettingsView: View {
                 Divider()
                     .frame(width: 1)
                 
-                // RIGHT COLUMN - Statistics & Info (50%)
+                // RIGHT COLUMN - 50% - Statistics & Info
                 VStack(alignment: .leading, spacing: 20) {
                     Text("カテゴリー統計")
-                        .font(.title2)
-                        .fontWeight(.bold)
+                        .font(.headline)
+                        .fontWeight(.semibold)
                     
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
@@ -324,7 +323,7 @@ struct AddCategoryView: View {
     var body: some View {
         NavigationView {
             if isIPad {
-                // iPad: Two-column layout
+                // iPad: Two-column layout using GeometryReader
                 GeometryReader { geometry in
                     let columnWidth = geometry.size.width / 2
                     
@@ -334,7 +333,7 @@ struct AddCategoryView: View {
                             formContent
                         }
                         .frame(width: columnWidth)
-                        .padding()
+                        .padding(20)
                         .background(Color(.systemBackground))
                         
                         Divider()
@@ -351,7 +350,7 @@ struct AddCategoryView: View {
                             Spacer()
                         }
                         .frame(width: columnWidth)
-                        .padding()
+                        .padding(20)
                         .background(Color(.systemGray6))
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
