@@ -155,14 +155,6 @@ struct OutputView: View {
                 .opacity(0.8)
             }
             .frame(height: 250)
-            .chartAngleSelection(minimumAngleDifference: 10)
-            .chartBackground { chartProxy in
-                GeometryReader { geometry in
-                    Rectangle()
-                        .fill(Color(.systemBackground))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
             
             // Legend with details
             VStack(alignment: .leading, spacing: 8) {
