@@ -1,39 +1,39 @@
 import SwiftUI
 
-// MARK: - ContentView (Main Tab Navigation)
-// ============================================
-// This is the root view that manages three tabs
-// KEY CONCEPT: @State for tab selection
-// @State = SwiftUI's way to manage LOCAL state (only this view cares about it)
-
+// MARK: - ContentView (Main Tab Navigation - iPhone only)
 struct ContentView: View {
     @State private var selectedTab = 0
     
     var body: some View {
-        // TabView creates the bottom tab bar
-        // selection: binding connects to @State selectedTab
         TabView(selection: $selectedTab) {
             
-            // TAB 1: Input View (Add expenses)
-            InputView()
+            // TAB 1: Daily Expense Input
+            DailyExpenseInputView()
                 .tabItem {
-                    Label("入力", systemImage: "plus.circle.fill")
+                    Label("日常", systemImage: "creditcard.fill")
                 }
                 .tag(0)
             
-            // TAB 2: Output View (View analytics)
+            // TAB 2: Recurring Expense Input
+            RecurringExpenseInputView()
+                .tabItem {
+                    Label("固定", systemImage: "calendar")
+                }
+                .tag(1)
+            
+            // TAB 3: Dashboard (Analytics)
             OutputView()
                 .tabItem {
                     Label("統計", systemImage: "chart.bar.fill")
                 }
-                .tag(1)
+                .tag(2)
             
-            // TAB 3: Settings View (Manage categories)
+            // TAB 4: Settings
             SettingsView()
                 .tabItem {
                     Label("設定", systemImage: "gear")
                 }
-                .tag(2)
+                .tag(3)
         }
         .onChange(of: selectedTab) { _ in
             // Dismiss keyboard when changing tabs

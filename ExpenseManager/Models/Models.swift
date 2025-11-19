@@ -1,32 +1,15 @@
 import Foundation
 
-// MARK: - ExpenseItem (unchanged)
-struct ExpenseItem: Codable, Identifiable, Hashable {
+// MARK: - Daily Expense (日常支出)
+struct DailyExpense: Codable, Identifiable, Hashable {
     var id: UUID = UUID()
     var amount: Double
-    var category: String          // This will be the mediumClass
-    var largeCategory: String     // NEW: The parent large category
+    var tag: String?  // Optional tag (e.g., "スーパー", "カフェ")
+    var tagNote: String = ""  // Note for specific tag (when selecting "その他" etc)
     var date: Date
-    var notes: String = ""
-    
-    init(
-        id: UUID = UUID(),
-        amount: Double,
-        category: String,
-        largeCategory: String,
-        date: Date,
-        notes: String = ""
-    ) {
-        self.id = id
-        self.amount = amount
-        self.category = category
-        self.largeCategory = largeCategory
-        self.date = date
-        self.notes = notes
-    }
     
     var formattedAmount: String {
-        String(format: "¥%.2f", amount)
+        String(format: "¥%.0f", amount)
     }
     
     var formattedDate: String {
@@ -36,99 +19,67 @@ struct ExpenseItem: Codable, Identifiable, Hashable {
     }
 }
 
-// MARK: - ExpenseCategory (Hierarchical)
-struct ExpenseCategory: Codable, Identifiable, Hashable {
+// MARK: - Recurring Expense (固定支出 / 月次支出)
+struct RecurringExpense: Codable, Identifiable, Hashable {
     var id: UUID = UUID()
-    var largeClass: String      // e.g., "Housing", "Utilities", "Food"
-    var mediumClass: String     // e.g., "Rent Fee", "Electricity", "Supermarket"
-    var smallClass: String?     // Optional: e.g., "Monthly", "Weekly"
-    var icon: String
-    var color: String
+    var name: String  // e.g., "住宅", "電気代", "携帯"
+    var budget: Double  // Monthly budget
+    var actualSpent: Double  // Actual amount spent this month
+    var lastMonthSpent: Double?  // Last month's spent amount
     
-    init(
-        id: UUID = UUID(),
-        largeClass: String,
-        mediumClass: String,
-        smallClass: String? = nil,
-        icon: String,
-        color: String
-    ) {
-        self.id = id
-        self.largeClass = largeClass
-        self.mediumClass = mediumClass
-        self.smallClass = smallClass
-        self.icon = icon
-        self.color = color
+    var formattedBudget: String {
+        String(format: "¥%.0f", budget)
+    }
+    
+    var formattedActualSpent: String {
+        String(format: "¥%.0f", actualSpent)
+    }
+    
+    var formattedLastMonthSpent: String {
+        guard let lastMonth = lastMonthSpent else { return "-" }
+        return String(format: "¥%.0f", lastMonth)
+    }
+    
+    var budgetRemaining: Double {
+        budget - actualSpent
+    }
+    
+    var isOverBudget: Bool {
+        actualSpent > budget
     }
 }
 
-// MARK: - Default Categories (Hierarchical Structure)
-let defaultCategories: [ExpenseCategory] = [
-    // MARK: - Housing (住宅)
-    ExpenseCategory(largeClass: "住宅", mediumClass: "家賃", icon: "🏠", color: "orange"),
-    ExpenseCategory(largeClass: "住宅", mediumClass: "ローン", icon: "🏠", color: "orange"),
-    ExpenseCategory(largeClass: "住宅", mediumClass: "管理費", icon: "🏠", color: "orange"),
+// MARK: - Expense Tag (タグ用)
+struct ExpenseTag: Codable, Identifiable, Hashable {
+    var id: UUID = UUID()
+    var name: String
     
-    // MARK: - Utilities (光熱費・通信費)
-    ExpenseCategory(largeClass: "光熱費", mediumClass: "電気", icon: "⚡", color: "yellow"),
-    ExpenseCategory(largeClass: "光熱費", mediumClass: "ガス", icon: "🔥", color: "yellow"),
-    ExpenseCategory(largeClass: "光熱費", mediumClass: "水道", icon: "💧", color: "yellow"),
-    ExpenseCategory(largeClass: "光熱費", mediumClass: "携帯", icon: "📱", color: "yellow"),
-    ExpenseCategory(largeClass: "光熱費", mediumClass: "インターネット", icon: "📡", color: "yellow"),
-    ExpenseCategory(largeClass: "光熱費", mediumClass: "その他", icon: "📶", color: "yellow"),
-    
-    // MARK: - Food (食費)
-    ExpenseCategory(largeClass: "食費", mediumClass: "スーパー", icon: "🛒", color: "green"),
-    ExpenseCategory(largeClass: "食費", mediumClass: "コンビニ", icon: "🏪", color: "green"),
-    ExpenseCategory(largeClass: "食費", mediumClass: "その他", icon: "🍽️", color: "green"),
-    
-    // MARK: - Outing (外出費)
-    ExpenseCategory(largeClass: "外出", mediumClass: "レストラン", icon: "🍽️", color: "red"),
-    ExpenseCategory(largeClass: "外出", mediumClass: "バー", icon: "🍺", color: "red"),
-    ExpenseCategory(largeClass: "外出", mediumClass: "居酒屋", icon: "🍶", color: "red"),
-    ExpenseCategory(largeClass: "外出", mediumClass: "ファストフード", icon: "🍔", color: "red"),
-    
-    // MARK: - Transport (交通費)
-    ExpenseCategory(largeClass: "交通費", mediumClass: "電車", icon: "🚆", color: "blue"),
-    ExpenseCategory(largeClass: "交通費", mediumClass: "タクシー", icon: "🚕", color: "blue"),
-    ExpenseCategory(largeClass: "交通費", mediumClass: "ガソリン", icon: "⛽", color: "blue"),
-    ExpenseCategory(largeClass: "交通費", mediumClass: "その他", icon: "🚗", color: "blue"),
-    
-    // MARK: - Cosmetics (美容)
-    ExpenseCategory(largeClass: "美容", mediumClass: "スキンケア", icon: "💅", color: "pink"),
-    ExpenseCategory(largeClass: "美容", mediumClass: "ヘアケア", icon: "💇", color: "pink"),
-    ExpenseCategory(largeClass: "美容", mediumClass: "その他", icon: "💄", color: "pink"),
-    
-    // MARK: - Education (教育)
-    ExpenseCategory(largeClass: "教育", mediumClass: "本", icon: "📚", color: "purple"),
-    ExpenseCategory(largeClass: "教育", mediumClass: "講座", icon: "🎓", color: "purple"),
-    ExpenseCategory(largeClass: "教育", mediumClass: "その他", icon: "📖", color: "purple"),
-    
-    // MARK: - Healthcare (医療)
-    ExpenseCategory(largeClass: "医療", mediumClass: "病院", icon: "🏥", color: "red"),
-    ExpenseCategory(largeClass: "医療", mediumClass: "薬", icon: "💊", color: "red"),
-    ExpenseCategory(largeClass: "医療", mediumClass: "その他", icon: "🩺", color: "red"),
-    
-    // MARK: - Entertainment (娯楽)
-    ExpenseCategory(largeClass: "娯楽", mediumClass: "映画", icon: "🎬", color: "purple"),
-    ExpenseCategory(largeClass: "娯楽", mediumClass: "ゲーム", icon: "🎮", color: "purple"),
-    ExpenseCategory(largeClass: "娯楽", mediumClass: "その他", icon: "🎨", color: "purple"),
-    
-    // MARK: - Shopping (買い物)
-    ExpenseCategory(largeClass: "買い物", mediumClass: "衣類", icon: "👕", color: "pink"),
-    ExpenseCategory(largeClass: "買い物", mediumClass: "家用品", icon: "🛋️", color: "pink"),
-    ExpenseCategory(largeClass: "買い物", mediumClass: "その他", icon: "🛍️", color: "pink"),
-    
-    // MARK: - Other (その他)
-    ExpenseCategory(largeClass: "その他", mediumClass: "その他", icon: "📦", color: "gray"),
+    init(id: UUID = UUID(), name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
+// MARK: - Default Recurring Expenses (固定支出のデフォルト)
+let defaultRecurringExpenses: [RecurringExpense] = [
+    RecurringExpense(name: "住宅", budget: 100000, actualSpent: 0, lastMonthSpent: 98000),
+    RecurringExpense(name: "電気", budget: 5000, actualSpent: 0, lastMonthSpent: 4800),
+    RecurringExpense(name: "ガス", budget: 4000, actualSpent: 0, lastMonthSpent: 3900),
+    RecurringExpense(name: "携帯", budget: 5000, actualSpent: 0, lastMonthSpent: 5000),
+    RecurringExpense(name: "水道", budget: 3000, actualSpent: 0, lastMonthSpent: 2950),
+    RecurringExpense(name: "新聞", budget: 2000, actualSpent: 0, lastMonthSpent: 2000),
+    RecurringExpense(name: "ヘアカット", budget: 5000, actualSpent: 0, lastMonthSpent: nil),
 ]
 
-// MARK: - Helper to get large categories
-func getLargeCategories() -> [String] {
-    Array(Set(defaultCategories.map { $0.largeClass })).sorted()
-}
-
-// MARK: - Helper to get medium categories for a large class
-func getMediumCategories(for largeClass: String) -> [ExpenseCategory] {
-    defaultCategories.filter { $0.largeClass == largeClass }.sorted { $0.mediumClass < $1.mediumClass }
-}
+// MARK: - Default Tags (デフォルトタグ)
+let defaultTags: [ExpenseTag] = [
+    ExpenseTag(name: "スーパー"),
+    ExpenseTag(name: "コンビニ"),
+    ExpenseTag(name: "レストラン"),
+    ExpenseTag(name: "カフェ"),
+    ExpenseTag(name: "居酒屋"),
+    ExpenseTag(name: "交通"),
+    ExpenseTag(name: "娯楽"),
+    ExpenseTag(name: "買い物"),
+    ExpenseTag(name: "その他"),
+]

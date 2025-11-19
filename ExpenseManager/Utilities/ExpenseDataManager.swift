@@ -2,137 +2,192 @@ import Foundation
 import Combine
 
 // MARK: - Data Manager using UserDefaults
-// Simple key-value storage for expenses and categories
-// Perfect for learning SwiftUI without Core Data complexity
-
 class ExpenseDataManager: ObservableObject {
     // MARK: - Published Properties
-    // @Published makes SwiftUI update UI when these change
-    @Published var expenses: [ExpenseItem] = []
-    @Published var categories: [ExpenseCategory] = []
+    @Published var dailyExpenses: [DailyExpense] = []
+    @Published var recurringExpenses: [RecurringExpense] = []
+    @Published var tags: [ExpenseTag] = []
     
-    private let expensesKey = "expensesData"
-    private let categoriesKey = "categoriesData"
+    private let dailyExpensesKey = "dailyExpensesData"
+    private let recurringExpensesKey = "recurringExpensesData"
+    private let tagsKey = "tagsData"
     
     init() {
-        loadExpenses()
-        loadCategories()
+        loadDailyExpenses()
+        loadRecurringExpenses()
+        loadTags()
     }
     
-    // MARK: - Expense Operations
+    // MARK: - Daily Expense Operations
     
-    func addExpense(_ expense: ExpenseItem) {
-        expenses.append(expense)
-        saveExpenses()
+    func addDailyExpense(_ expense: DailyExpense) {
+        dailyExpenses.append(expense)
+        saveDailyExpenses()
     }
     
-    func deleteExpense(at index: Int) {
-        guard index >= 0 && index < expenses.count else { return }
-        expenses.remove(at: index)
-        saveExpenses()
+    func deleteDailyExpense(at index: Int) {
+        guard index >= 0 && index < dailyExpenses.count else { return }
+        dailyExpenses.remove(at: index)
+        saveDailyExpenses()
     }
     
-    func updateExpense(_ expense: ExpenseItem, at index: Int) {
-        guard index >= 0 && index < expenses.count else { return }
-        expenses[index] = expense
-        saveExpenses()
+    func updateDailyExpense(_ expense: DailyExpense, at index: Int) {
+        guard index >= 0 && index < dailyExpenses.count else { return }
+        dailyExpenses[index] = expense
+        saveDailyExpenses()
     }
     
-    func getExpensesForMonth(_ month: Date) -> [ExpenseItem] {
+    func getDailyExpensesForMonth(_ month: Date) -> [DailyExpense] {
         let calendar = Calendar.current
-        return expenses.filter { expense in
+        return dailyExpenses.filter { expense in
             calendar.isDate(expense.date, equalTo: month, toGranularity: .month)
         }
     }
     
-    func getCategoryTotal(category: String, for month: Date) -> Double {
-        let monthExpenses = getExpensesForMonth(month)
-        return monthExpenses
-            .filter { $0.category == category }
-            .reduce(0) { $0 + $1.amount }
+    // MARK: - Recurring Expense Operations
+    
+    func updateRecurringExpense(_ expense: RecurringExpense, at index: Int) {
+        guard index >= 0 && index < recurringExpenses.count else { return }
+        recurringExpenses[index] = expense
+        saveRecurringExpenses()
     }
     
-    // MARK: - Category Operations
-    
-    func addCategory(_ category: ExpenseCategory) {
-        categories.append(category)
-        saveCategories()
+    func addRecurringExpense(_ expense: RecurringExpense) {
+        recurringExpenses.append(expense)
+        saveRecurringExpenses()
     }
     
-    func deleteCategory(at index: Int) {
-        guard index >= 0 && index < categories.count else { return }
-        categories.remove(at: index)
-        saveCategories()
+    func deleteRecurringExpense(at index: Int) {
+        guard index >= 0 && index < recurringExpenses.count else { return }
+        recurringExpenses.remove(at: index)
+        saveRecurringExpenses()
     }
     
-    func updateCategory(_ category: ExpenseCategory, at index: Int) {
-        guard index >= 0 && index < categories.count else { return }
-        categories[index] = category
-        saveCategories()
+    func getTotalRecurringBudget() -> Double {
+        recurringExpenses.reduce(0) { $0 + $1.budget }
     }
     
-    // MARK: - Persistence Methods
+    func getTotalRecurringSpent() -> Double {
+        recurringExpenses.reduce(0) { $0 + $1.actualSpent }
+    }
     
-    private func saveExpenses() {
+    // MARK: - Tag Operations
+    
+    func addTag(_ tag: ExpenseTag) {
+        // Check if tag already exists
+        guard !tags.contains(where: { $0.name.lowercased() == tag.name.lowercased() }) else {
+            return
+        }
+        tags.append(tag)
+        saveTags()
+    }
+    
+    func deleteTag(at index: Int) {
+        guard index >= 0 && index < tags.count else { return }
+        tags.remove(at: index)
+        saveTags()
+    }
+    
+    func getAvailableTags() -> [String] {
+        tags.map { $0.name }.sorted()
+    }
+    
+    // MARK: - Persistence Methods (Daily Expenses)
+    
+    private func saveDailyExpenses() {
         do {
-            let encodedData = try JSONEncoder().encode(expenses)
-            UserDefaults.standard.set(encodedData, forKey: expensesKey)
-            print("✅ Expenses saved: \(expenses.count) items")
+            let encodedData = try JSONEncoder().encode(dailyExpenses)
+            UserDefaults.standard.set(encodedData, forKey: dailyExpensesKey)
+            print("✅ Daily expenses saved: \(dailyExpenses.count) items")
         } catch {
-            print("❌ Error saving expenses: \(error)")
+            print("❌ Error saving daily expenses: \(error)")
         }
     }
     
-    private func loadExpenses() {
-        guard let data = UserDefaults.standard.data(forKey: expensesKey) else {
-            print("📝 No expenses found, starting fresh")
+    private func loadDailyExpenses() {
+        guard let data = UserDefaults.standard.data(forKey: dailyExpensesKey) else {
+            print("📝 No daily expenses found, starting fresh")
             return
         }
         
         do {
-            expenses = try JSONDecoder().decode([ExpenseItem].self, from: data)
-            print("✅ Expenses loaded: \(expenses.count) items")
+            dailyExpenses = try JSONDecoder().decode([DailyExpense].self, from: data)
+            print("✅ Daily expenses loaded: \(dailyExpenses.count) items")
         } catch {
-            print("❌ Error loading expenses: \(error)")
-            expenses = []
+            print("❌ Error loading daily expenses: \(error)")
+            dailyExpenses = []
         }
     }
     
-    private func saveCategories() {
+    // MARK: - Persistence Methods (Recurring Expenses)
+    
+    private func saveRecurringExpenses() {
         do {
-            let encodedData = try JSONEncoder().encode(categories)
-            UserDefaults.standard.set(encodedData, forKey: categoriesKey)
-            print("✅ Categories saved: \(categories.count) items")
+            let encodedData = try JSONEncoder().encode(recurringExpenses)
+            UserDefaults.standard.set(encodedData, forKey: recurringExpensesKey)
+            print("✅ Recurring expenses saved: \(recurringExpenses.count) items")
         } catch {
-            print("❌ Error saving categories: \(error)")
+            print("❌ Error saving recurring expenses: \(error)")
         }
     }
     
-    private func loadCategories() {
-        guard let data = UserDefaults.standard.data(forKey: categoriesKey) else {
-            // First time? Load default categories
-            categories = defaultCategories
-            saveCategories()
-            print("📝 Loaded default categories")
+    private func loadRecurringExpenses() {
+        guard let data = UserDefaults.standard.data(forKey: recurringExpensesKey) else {
+            // First time? Load default recurring expenses
+            recurringExpenses = defaultRecurringExpenses
+            saveRecurringExpenses()
+            print("📝 Loaded default recurring expenses")
             return
         }
         
         do {
-            categories = try JSONDecoder().decode([ExpenseCategory].self, from: data)
-            print("✅ Categories loaded: \(categories.count) items")
+            recurringExpenses = try JSONDecoder().decode([RecurringExpense].self, from: data)
+            print("✅ Recurring expenses loaded: \(recurringExpenses.count) items")
         } catch {
-            print("❌ Error loading categories: \(error)")
-            categories = defaultCategories
+            print("❌ Error loading recurring expenses: \(error)")
+            recurringExpenses = defaultRecurringExpenses
+        }
+    }
+    
+    // MARK: - Persistence Methods (Tags)
+    
+    private func saveTags() {
+        do {
+            let encodedData = try JSONEncoder().encode(tags)
+            UserDefaults.standard.set(encodedData, forKey: tagsKey)
+            print("✅ Tags saved: \(tags.count) items")
+        } catch {
+            print("❌ Error saving tags: \(error)")
+        }
+    }
+    
+    private func loadTags() {
+        guard let data = UserDefaults.standard.data(forKey: tagsKey) else {
+            // First time? Load default tags
+            tags = defaultTags
+            saveTags()
+            print("📝 Loaded default tags")
+            return
+        }
+        
+        do {
+            tags = try JSONDecoder().decode([ExpenseTag].self, from: data)
+            print("✅ Tags loaded: \(tags.count) items")
+        } catch {
+            print("❌ Error loading tags: \(error)")
+            tags = defaultTags
         }
     }
     
     // MARK: - Debug Helpers
     
     func clearAllData() {
-        expenses.removeAll()
-        categories = defaultCategories
-        saveExpenses()
-        saveCategories()
+        dailyExpenses.removeAll()
+        recurringExpenses = defaultRecurringExpenses
+        tags = defaultTags
+        saveDailyExpenses()
+        saveRecurringExpenses()
+        saveTags()
         print("🗑️ All data cleared")
     }
 }
