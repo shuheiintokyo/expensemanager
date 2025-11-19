@@ -10,28 +10,28 @@ struct ContentView: View {
             // TAB 1: Daily Expense Input
             DailyExpenseInputView()
                 .tabItem {
-                    Label("日常", systemImage: "creditcard.fill")
+                    Label("Daily", systemImage: "creditcard.fill")
                 }
                 .tag(0)
             
             // TAB 2: Recurring Expense Input
             RecurringExpenseInputView()
                 .tabItem {
-                    Label("固定", systemImage: "calendar")
+                    Label("Monthly", systemImage: "calendar")
                 }
                 .tag(1)
             
             // TAB 3: Dashboard (Analytics)
             OutputView()
                 .tabItem {
-                    Label("統計", systemImage: "chart.bar.fill")
+                    Label("Stats", systemImage: "chart.bar.fill")
                 }
                 .tag(2)
             
             // TAB 4: Settings
             SettingsView()
                 .tabItem {
-                    Label("設定", systemImage: "gear")
+                    Label("Setting", systemImage: "gear")
                 }
                 .tag(3)
         }
