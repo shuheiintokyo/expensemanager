@@ -151,7 +151,7 @@ class ExpenseDataManager: ObservableObject {
     
     // MARK: - Persistence Methods (Tags)
     
-    private func saveTags() {
+    func saveTags() {
         do {
             let encodedData = try JSONEncoder().encode(tags)
             UserDefaults.standard.set(encodedData, forKey: tagsKey)

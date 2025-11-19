@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // MARK: - Daily Expense (日常支出)
 struct DailyExpense: Codable, Identifiable, Hashable {
@@ -53,10 +54,47 @@ struct RecurringExpense: Codable, Identifiable, Hashable {
 struct ExpenseTag: Codable, Identifiable, Hashable {
     var id: UUID = UUID()
     var name: String
+    var colorHex: String = "#3B82F6"  // Default blue color
     
-    init(id: UUID = UUID(), name: String) {
+    init(id: UUID = UUID(), name: String, colorHex: String = "#3B82F6") {
         self.id = id
         self.name = name
+        self.colorHex = colorHex
+    }
+    
+    func getColor() -> Color {
+        return Color(hex: colorHex) ?? Color.blue
+    }
+}
+
+// MARK: - Color Extension for Hex
+extension Color {
+    init?(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        guard hex.count == 6 else { return nil }
+        
+        let scanner = Scanner(string: hex)
+        var rgb: UInt64 = 0
+        scanner.scanHexInt64(&rgb)
+        
+        let red = Double((rgb >> 16) & 0xFF) / 255.0
+        let green = Double((rgb >> 8) & 0xFF) / 255.0
+        let blue = Double(rgb & 0xFF) / 255.0
+        
+        self.init(red: red, green: green, blue: blue)
+    }
+    
+    func toHex() -> String {
+        let uiColor = UIColor(self)
+        guard let components = uiColor.cgColor.components, components.count >= 3 else {
+            return "#3B82F6"
+        }
+        
+        let r = Int(components[0] * 255)
+        let g = Int(components[1] * 255)
+        let b = Int(components[2] * 255)
+        
+        return String(format: "#%02X%02X%02X", r, g, b)
     }
 }
 
@@ -71,15 +109,15 @@ let defaultRecurringExpenses: [RecurringExpense] = [
     RecurringExpense(name: "ヘアカット", budget: 5000, actualSpent: 0, lastMonthSpent: nil),
 ]
 
-// MARK: - Default Tags (デフォルトタグ)
+// MARK: - Default Tags (デフォルトタグ) with colors
 let defaultTags: [ExpenseTag] = [
-    ExpenseTag(name: "スーパー"),
-    ExpenseTag(name: "コンビニ"),
-    ExpenseTag(name: "レストラン"),
-    ExpenseTag(name: "カフェ"),
-    ExpenseTag(name: "居酒屋"),
-    ExpenseTag(name: "交通"),
-    ExpenseTag(name: "娯楽"),
-    ExpenseTag(name: "買い物"),
-    ExpenseTag(name: "その他"),
+    ExpenseTag(name: "スーパー", colorHex: "#22C55E"),      // Green
+    ExpenseTag(name: "コンビニ", colorHex: "#3B82F6"),      // Blue
+    ExpenseTag(name: "レストラン", colorHex: "#EF4444"),    // Red
+    ExpenseTag(name: "カフェ", colorHex: "#A16207"),        // Brown
+    ExpenseTag(name: "居酒屋", colorHex: "#A855F7"),        // Purple
+    ExpenseTag(name: "交通", colorHex: "#06B6D4"),          // Cyan
+    ExpenseTag(name: "娯楽", colorHex: "#F97316"),          // Orange
+    ExpenseTag(name: "買い物", colorHex: "#EC4899"),        // Pink
+    ExpenseTag(name: "その他", colorHex: "#6B7280"),        // Gray
 ]

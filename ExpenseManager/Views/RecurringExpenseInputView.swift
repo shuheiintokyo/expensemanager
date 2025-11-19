@@ -103,16 +103,19 @@ struct RecurringExpenseInputView: View {
             }
             .navigationTitle("固定支出")
             .alert("金額を入力", isPresented: $showAlert) {
-                TextField("金額", text: $editingAmount)
+                TextField("金額を入力", text: $editingAmount)
                     .keyboardType(.numberPad)
                 
                 Button("キャンセル", role: .cancel) {
                     editingIndex = nil
+                    editingAmount = ""
                 }
                 
                 Button("保存") {
                     saveEditedAmount()
                 }
+            } message: {
+                Text("このカテゴリの実績額を入力してください")
             }
         }
     }
@@ -136,8 +139,24 @@ struct RecurringExpenseInputView: View {
                 }
             }
             
-            // Actual vs Last Month (side by side)
+            // Budget and Actual (side by side)
             HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("月間予算")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    HStack(spacing: 2) {
+                        Text("¥")
+                            .font(.caption2)
+                        Text(expense.formattedBudget)
+                            .font(.body)
+                            .fontWeight(.bold)
+                    }
+                }
+                
+                Divider()
+                    .frame(height: 30)
+                
                 VStack(alignment: .leading, spacing: 4) {
                     Text("実績")
                         .font(.caption)
@@ -152,27 +171,21 @@ struct RecurringExpenseInputView: View {
                     }
                 }
                 
-                Divider()
-                    .frame(height: 30)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("先月")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    HStack(spacing: 2) {
-                        Text("¥")
-                            .font(.caption2)
-                        Text(expense.formattedLastMonthSpent)
-                            .font(.body)
-                            .fontWeight(.bold)
-                            .foregroundColor(.gray)
-                    }
-                }
-                
                 Spacer()
+                
+                // Edit Button
+                Button(action: {
+                    editingIndex = index
+                    editingAmount = String(Int(expense.actualSpent))
+                    showAlert = true
+                }) {
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.body)
+                        .foregroundColor(.blue)
+                }
             }
             
-            // Progress bar (no budget label)
+            // Progress bar
             GeometryReader { geometry in
                 let progress = min(expense.actualSpent / expense.budget, 1.0)
                 ZStack(alignment: .leading) {
@@ -204,12 +217,6 @@ struct RecurringExpenseInputView: View {
                 }
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            editingIndex = index
-            editingAmount = String(Int(expense.actualSpent))
-            showAlert = true
-        }
         .padding(.vertical, 4)
     }
     
@@ -227,12 +234,16 @@ struct RecurringExpenseInputView: View {
         guard let index = editingIndex else { return }
         guard !editingAmount.isEmpty else {
             showAlert = false
+            editingIndex = nil
+            editingAmount = ""
             return
         }
         
         let cleanAmount = editingAmount.replacingOccurrences(of: ",", with: "")
         guard let amountDouble = Double(cleanAmount) else {
             showAlert = false
+            editingIndex = nil
+            editingAmount = ""
             return
         }
         

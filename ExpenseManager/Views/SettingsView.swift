@@ -33,17 +33,25 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             List {
                 ForEach(Array(dataManager.tags.enumerated()), id: \.element.id) { index, tag in
-                    HStack {
-                        Image(systemName: "tag.fill")
-                            .foregroundColor(.blue)
-                            .font(.body)
-                        
-                        Text(tag.name)
-                            .fontWeight(.semibold)
-                        
-                        Spacer()
+                    NavigationLink(destination: EditTagView(tagIndex: index)
+                        .environmentObject(dataManager)
+                    ) {
+                        HStack {
+                            Image(systemName: "tag.fill")
+                                .foregroundColor(tag.getColor())
+                                .font(.body)
+                            
+                            Text(tag.name)
+                                .fontWeight(.semibold)
+                            
+                            Spacer()
+                            
+                            Circle()
+                                .fill(tag.getColor())
+                                .frame(width: 16, height: 16)
+                        }
+                        .padding(.vertical, 6)
                     }
-                    .padding(.vertical, 6)
                 }
                 .onDelete { indexSet in
                     indexSet.forEach { index in
@@ -133,6 +141,134 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Edit Tag View (with color picker)
+
+struct EditTagView: View {
+    @EnvironmentObject var dataManager: ExpenseDataManager
+    @Environment(\.presentationMode) var presentationMode
+    
+    @State var tagIndex: Int
+    @State private var tagName: String = ""
+    @State private var selectedColor: Color = Color.blue
+    
+    var body: some View {
+        Form {
+            Section(header: Text("タグ情報").font(.headline)) {
+                TextField("タグ名", text: $tagName)
+                
+                HStack {
+                    Text("色")
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                    
+                    NavigationLink(destination: ColorPickerView(selectedColor: $selectedColor)) {
+                        Circle()
+                            .fill(selectedColor)
+                            .frame(width: 30, height: 30)
+                            .overlay(Circle().stroke(Color.gray, lineWidth: 1))
+                    }
+                }
+            }
+            
+            Section {
+                Button(action: saveTag) {
+                    HStack {
+                        Spacer()
+                        Text("保存")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                        Spacer()
+                    }
+                }
+            }
+        }
+        .navigationTitle("タグを編集")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if tagIndex >= 0 && tagIndex < dataManager.tags.count {
+                let tag = dataManager.tags[tagIndex]
+                tagName = tag.name
+                selectedColor = tag.getColor()
+            }
+        }
+    }
+    
+    private func saveTag() {
+        guard tagIndex >= 0 && tagIndex < dataManager.tags.count else { return }
+        
+        var tag = dataManager.tags[tagIndex]
+        tag.name = tagName
+        tag.colorHex = selectedColor.toHex()
+        
+        dataManager.tags[tagIndex] = tag
+        dataManager.saveTags()
+        
+        presentationMode.wrappedValue.dismiss()
+    }
+}
+
+// MARK: - Color Picker View
+
+struct ColorPickerView: View {
+    @Binding var selectedColor: Color
+    @Environment(\.presentationMode) var presentationMode
+    
+    let colors: [Color] = [
+        Color(red: 0.22, green: 0.80, blue: 0.22),   // Green
+        Color(red: 0.24, green: 0.52, blue: 1.0),    // Blue
+        Color(red: 0.94, green: 0.27, blue: 0.27),   // Red
+        Color(red: 0.63, green: 0.39, blue: 0.0),    // Brown
+        Color(red: 0.65, green: 0.33, blue: 0.97),   // Purple
+        Color(red: 0.03, green: 0.74, blue: 0.83),   // Cyan
+        Color(red: 0.98, green: 0.62, blue: 0.1),    // Orange
+        Color(red: 0.92, green: 0.29, blue: 0.44),   // Pink
+        Color(red: 0.42, green: 0.44, blue: 0.50),   // Gray
+    ]
+    
+    let colorNames = ["緑", "青", "赤", "茶", "紫", "シアン", "オレンジ", "ピンク", "グレー"]
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            Text("色を選択")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .padding()
+            
+            VStack(spacing: 16) {
+                ForEach(0..<colors.count, id: \.self) { index in
+                    HStack(spacing: 16) {
+                        Button(action: {
+                            selectedColor = colors[index]
+                            presentationMode.wrappedValue.dismiss()
+                        }) {
+                            Circle()
+                                .fill(colors[index])
+                                .frame(width: 50, height: 50)
+                                .overlay(
+                                    Circle()
+                                        .stroke(
+                                            selectedColor.toHex() == colors[index].toHex() ? Color.black : Color.gray,
+                                            lineWidth: selectedColor.toHex() == colors[index].toHex() ? 3 : 1
+                                        )
+                                )
+                        }
+                        
+                        Text(colorNames[index])
+                            .fontWeight(.semibold)
+                        
+                        Spacer()
+                    }
+                }
+            }
+            .padding()
+            
+            Spacer()
+        }
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -286,32 +422,15 @@ struct EditRecurringExpenseView: View {
                 }
             }
             
-            // Last Month Info
-            VStack(alignment: .leading, spacing: 10) {
-                Text("先月の実績")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.blue)
-                
-                HStack(spacing: 2) {
-                    Text("¥")
-                        .font(.caption2)
-                    Text(expense.formattedLastMonthSpent)
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.gray)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-            }
-            
             Spacer()
         }
         .padding(16)
         .navigationTitle("編集: \(expense.name)")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            categoryNameInput = expense.name
+            budgetInput = String(Int(expense.budget))
+        }
     }
 }
 
@@ -322,6 +441,7 @@ struct AddTagView: View {
     @Binding var isPresented: Bool
     
     @State private var tagName: String = ""
+    @State private var selectedColor: Color = Color.blue
     @State private var showError: Bool = false
     @State private var errorMessage: String = ""
     
@@ -330,6 +450,20 @@ struct AddTagView: View {
             Form {
                 Section(header: Text("新しいタグ").font(.headline)) {
                     TextField("タグ名を入力", text: $tagName)
+                    
+                    HStack {
+                        Text("色")
+                            .fontWeight(.semibold)
+                        
+                        Spacer()
+                        
+                        NavigationLink(destination: ColorPickerView(selectedColor: $selectedColor)) {
+                            Circle()
+                                .fill(selectedColor)
+                                .frame(width: 30, height: 30)
+                                .overlay(Circle().stroke(Color.gray, lineWidth: 1))
+                        }
+                    }
                 }
                 
                 Section {
@@ -372,7 +506,7 @@ struct AddTagView: View {
             return
         }
         
-        let newTag = ExpenseTag(name: tagName)
+        let newTag = ExpenseTag(name: tagName, colorHex: selectedColor.toHex())
         dataManager.addTag(newTag)
         isPresented = false
     }

@@ -7,27 +7,14 @@ struct DailyExpenseInputView: View {
     @State private var selectedTag: String? = nil
     @State private var tagNote: String = ""
     @State private var selectedDate: Date = Date()
-    @State private var showAlert: Bool = false
-    @State private var alertMessage: String = ""
+    @State private var showToast: Bool = false
+    @State private var toastMessage: String = ""
     @State private var isSuccess: Bool = false
     
     enum Field {
         case amount
     }
     @FocusState private var focusedField: Field?
-    
-    // Tag colors
-    private let tagColors: [String: Color] = [
-        "スーパー": Color.green.opacity(0.2),
-        "コンビニ": Color.blue.opacity(0.2),
-        "レストラン": Color.red.opacity(0.2),
-        "カフェ": Color.brown.opacity(0.2),
-        "居酒屋": Color.purple.opacity(0.2),
-        "交通": Color.cyan.opacity(0.2),
-        "娯楽": Color.orange.opacity(0.2),
-        "買い物": Color.pink.opacity(0.2),
-        "その他": Color.gray.opacity(0.2),
-    ]
     
     var body: some View {
         NavigationView {
@@ -93,22 +80,22 @@ struct DailyExpenseInputView: View {
                         // Tag Grid
                         VStack(spacing: 10) {
                             HStack(spacing: 10) {
-                                ForEach(Array(dataManager.getAvailableTags().prefix(3)), id: \.self) { tag in
+                                ForEach(Array(dataManager.tags.prefix(3)), id: \.id) { tag in
                                     tagButton(tag)
                                 }
                             }
                             
-                            if dataManager.getAvailableTags().count > 3 {
+                            if dataManager.tags.count > 3 {
                                 HStack(spacing: 10) {
-                                    ForEach(Array(dataManager.getAvailableTags().dropFirst(3).prefix(3)), id: \.self) { tag in
+                                    ForEach(Array(dataManager.tags.dropFirst(3).prefix(3)), id: \.id) { tag in
                                         tagButton(tag)
                                     }
                                 }
                             }
                             
-                            if dataManager.getAvailableTags().count > 6 {
+                            if dataManager.tags.count > 6 {
                                 HStack(spacing: 10) {
-                                    ForEach(Array(dataManager.getAvailableTags().dropFirst(6)), id: \.self) { tag in
+                                    ForEach(Array(dataManager.tags.dropFirst(6)), id: \.id) { tag in
                                         tagButton(tag)
                                     }
                                 }
@@ -153,28 +140,30 @@ struct DailyExpenseInputView: View {
             }
             .navigationTitle("日常支出を追加")
         }
-        .alert(isSuccess ? "完了" : "入力エラー", isPresented: $showAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(alertMessage)
+        .overlay(alignment: .bottom) {
+            if showToast {
+                ToastView(message: toastMessage, isSuccess: isSuccess)
+                    .padding()
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
     }
     
     // MARK: - Tag Button
-    private func tagButton(_ tag: String) -> some View {
+    private func tagButton(_ tag: ExpenseTag) -> some View {
         Button(action: {
-            if selectedTag == tag {
+            if selectedTag == tag.name {
                 selectedTag = nil
                 tagNote = ""
             } else {
-                selectedTag = tag
-                if tag != "その他" {
+                selectedTag = tag.name
+                if tag.name != "その他" {
                     tagNote = ""
                 }
             }
         }) {
             VStack(spacing: 4) {
-                Text(tag)
+                Text(tag.name)
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(.black)
@@ -183,15 +172,15 @@ struct DailyExpenseInputView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .background(
-                selectedTag == tag
-                    ? (tagColors[tag] ?? Color.gray.opacity(0.2))
-                    : Color(.systemGray6)
+                selectedTag == tag.name
+                    ? tag.getColor().opacity(0.8)  // Strong opacity when selected
+                    : tag.getColor().opacity(0.2)  // Light opacity when unselected
             )
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(
-                        selectedTag == tag ? Color.blue : Color.clear,
+                        selectedTag == tag.name ? tag.getColor() : Color.clear,
                         lineWidth: 2
                     )
             )
@@ -217,16 +206,26 @@ struct DailyExpenseInputView: View {
     private func addExpense() {
         guard !amount.isEmpty else {
             isSuccess = false
-            alertMessage = "金額を入力してください"
-            showAlert = true
+            toastMessage = "金額を入力してください"
+            showToast = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation {
+                    showToast = false
+                }
+            }
             return
         }
         
         let cleanAmount = amount.replacingOccurrences(of: ",", with: "")
         guard let amountDouble = Double(cleanAmount) else {
             isSuccess = false
-            alertMessage = "有効な金額を入力してください"
-            showAlert = true
+            toastMessage = "有効な金額を入力してください"
+            showToast = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation {
+                    showToast = false
+                }
+            }
             return
         }
         
@@ -247,8 +246,39 @@ struct DailyExpenseInputView: View {
         focusedField = nil
         
         isSuccess = true
-        alertMessage = "支出が追加されました！"
-        showAlert = true
+        toastMessage = "支出が追加されました！"
+        showToast = true
+        
+        // Auto-dismiss toast after 1 second
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            withAnimation {
+                showToast = false
+            }
+        }
+    }
+}
+
+// MARK: - Toast View
+struct ToastView: View {
+    let message: String
+    let isSuccess: Bool
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .font(.body)
+                .foregroundColor(.white)
+            
+            Text(message)
+                .font(.body)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+            
+            Spacer()
+        }
+        .padding(12)
+        .background(isSuccess ? Color.green : Color.red)
+        .cornerRadius(10)
     }
 }
 

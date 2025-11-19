@@ -62,17 +62,12 @@ struct OutputView: View {
                                 pieChartSection
                             }
                             
-                            // Line Chart - Daily Trend
-                            if !sortedDailyBreakdown.isEmpty {
+                            // Line Chart - Daily Trend (Cumulative)
+                            if !cumulativeDailyData.isEmpty {
                                 lineChartSection
                             }
                             
-                            // Fixed Expenses Summary
-                            if !recurringExpenses.isEmpty {
-                                fixedExpensesSummary
-                            }
-                            
-                            // Daily Breakdown Details
+                            // Daily Breakdown Details with colors
                             if !sortedDailyBreakdown.isEmpty {
                                 dailyBreakdownCard
                             }
@@ -104,32 +99,13 @@ struct OutputView: View {
                 
                 Spacer()
                 
-                VStack(alignment: .center, spacing: 4) {
-                    Text("固定支出")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    HStack(spacing: 2) {
-                        Text("¥")
-                            .font(.caption2)
-                        Text(formatCurrency(dataManager.getTotalRecurringSpent()))
-                            .font(.headline)
-                            .fontWeight(.bold)
-                    }
-                }
-                
-                Spacer()
-                
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("合計")
+                    Text("日数")
                         .font(.caption)
                         .foregroundColor(.gray)
-                    HStack(spacing: 2) {
-                        Text("¥")
-                            .font(.caption2)
-                        Text(formatCurrency(totalDailyAmount + dataManager.getTotalRecurringSpent()))
-                            .font(.headline)
-                            .fontWeight(.bold)
-                    }
+                    Text("\(uniqueDays)")
+                        .font(.headline)
+                        .fontWeight(.bold)
                 }
             }
             .padding(12)
@@ -198,25 +174,25 @@ struct OutputView: View {
         .border(Color(.systemGray6), width: 1)
     }
     
-    // MARK: - Line Chart Section (Trend)
+    // MARK: - Line Chart Section (Cumulative Trend)
     private var lineChartSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("日別支出推移")
+            Text("日別支出推移（累計）")
                 .font(.headline)
                 .fontWeight(.semibold)
             
-            // Line Chart with X and Y axis
-            Chart(dailyChartData) { item in
+            // Line Chart with cumulative data
+            Chart(cumulativeDailyData) { item in
                 LineMark(
-                    x: .value("日付", item.dateLabel),
-                    y: .value("金額", item.amount)
+                    x: .value("日付", item.day),
+                    y: .value("金額", item.cumulativeAmount)
                 )
                 .foregroundStyle(Color.blue)
                 .lineStyle(StrokeStyle(lineWidth: 2))
                 
                 PointMark(
-                    x: .value("日付", item.dateLabel),
-                    y: .value("金額", item.amount)
+                    x: .value("日付", item.day),
+                    y: .value("金額", item.cumulativeAmount)
                 )
                 .foregroundStyle(Color.blue)
                 .symbolSize(100)
@@ -238,7 +214,7 @@ struct OutputView: View {
                         .font(.caption2)
                 }
             }
-            .chartYScale(domain: [0, (dailyChartData.map { $0.amount }.max() ?? 0) * 1.2])
+            .chartYScale(domain: [0, (cumulativeDailyData.map { $0.cumulativeAmount }.max() ?? 0) * 1.2])
             
             // Statistics
             VStack(alignment: .leading, spacing: 8) {
@@ -264,7 +240,7 @@ struct OutputView: View {
                     HStack(spacing: 2) {
                         Text("¥")
                             .font(.caption2)
-                        Text(formatCurrency(totalDailyAmount / Double(sortedDailyBreakdown.count)))
+                        Text(formatCurrency(totalDailyAmount / Double(uniqueDays)))
                             .font(.caption)
                             .fontWeight(.bold)
                     }
@@ -278,7 +254,7 @@ struct OutputView: View {
                     HStack(spacing: 2) {
                         Text("¥")
                             .font(.caption2)
-                        Text(formatCurrency(sortedDailyBreakdown.map { $0.amount }.max() ?? 0))
+                        Text(formatCurrency(dailyAmounts.map { $0.value }.max() ?? 0))
                             .font(.caption)
                             .fontWeight(.bold)
                     }
@@ -294,81 +270,7 @@ struct OutputView: View {
         .border(Color(.systemGray6), width: 1)
     }
     
-    // MARK: - Fixed Expenses Summary
-    private var fixedExpensesSummary: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("固定支出進捗")
-                .font(.headline)
-                .fontWeight(.semibold)
-            
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("月間予算")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    HStack(spacing: 2) {
-                        Text("¥")
-                            .font(.caption2)
-                        Text(formatCurrency(dataManager.getTotalRecurringBudget()))
-                            .font(.body)
-                            .fontWeight(.bold)
-                    }
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("実績")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    HStack(spacing: 2) {
-                        Text("¥")
-                            .font(.caption2)
-                        Text(formatCurrency(dataManager.getTotalRecurringSpent()))
-                            .font(.body)
-                            .fontWeight(.bold)
-                    }
-                }
-            }
-            .padding(12)
-            .background(Color.orange.opacity(0.1))
-            .cornerRadius(8)
-            
-            // Progress bar
-            let totalBudget = dataManager.getTotalRecurringBudget()
-            let totalSpent = dataManager.getTotalRecurringSpent()
-            let progress = min(totalSpent / totalBudget, 1.0)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("使用率")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Spacer()
-                    Text("\(Int(progress * 100))%")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                }
-                
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.systemGray6))
-                    
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(totalSpent > totalBudget ? Color.red : Color.orange)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .frame(maxWidth: CGFloat(progress) * 280)
-                }
-                .frame(height: 8)
-            }
-        }
-        .padding(12)
-        .background(Color(.systemBackground))
-        .cornerRadius(10)
-        .border(Color(.systemGray6), width: 1)
-    }
-    
-    // MARK: - Daily Breakdown Details
+    // MARK: - Daily Breakdown Details with day coloring
     private var dailyBreakdownCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("日別支出一覧")
@@ -376,25 +278,41 @@ struct OutputView: View {
                 .fontWeight(.semibold)
             
             VStack(spacing: 8) {
-                ForEach(sortedDailyBreakdown, id: \.date) { date, amount in
-                    HStack {
-                        Text(date)
-                            .font(.body)
-                            .fontWeight(.semibold)
-                        
-                        Spacer()
-                        
-                        HStack(spacing: 2) {
-                            Text("¥")
-                                .font(.caption2)
-                            Text(formatCurrency(amount))
-                                .font(.body)
-                                .fontWeight(.bold)
+                ForEach(allDaysOfMonth, id: \.self) { dayInfo in
+                    let amount = dailyAmounts[dayInfo.dateString] ?? 0
+                    let dayColor = getDayBackgroundColor(dayInfo.dayOfWeek, isHoliday: dayInfo.isHoliday)
+                    
+                    if amount > 0 || amount == 0 {  // Show all days
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(dayInfo.dateString)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                Text(dayInfo.dayName)
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+                            
+                            Spacer()
+                            
+                            if amount > 0 {
+                                HStack(spacing: 2) {
+                                    Text("¥")
+                                        .font(.caption2)
+                                    Text(formatCurrency(amount))
+                                        .font(.body)
+                                        .fontWeight(.bold)
+                                }
+                            } else {
+                                Text("-")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
                         }
+                        .padding(10)
+                        .background(dayColor)
+                        .cornerRadius(8)
                     }
-                    .padding(10)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
                 }
             }
         }
@@ -412,10 +330,17 @@ struct OutputView: View {
         let amount: Double
     }
     
-    struct DailyChartData: Identifiable {
+    struct CumulativeDailyData: Identifiable {
         let id = UUID()
-        let dateLabel: String
-        let amount: Double
+        let day: Int
+        let cumulativeAmount: Double
+    }
+    
+    struct DayInfo: Hashable {
+        let dateString: String  // "11/19"
+        let dayName: String     // "火" (Tuesday)
+        let dayOfWeek: Int      // 1=Sunday, 2=Monday, etc.
+        let isHoliday: Bool
     }
     
     // MARK: - Computed Properties
@@ -424,12 +349,16 @@ struct OutputView: View {
         dataManager.getDailyExpensesForMonth(selectedMonth)
     }
     
-    private var recurringExpenses: [RecurringExpense] {
-        dataManager.recurringExpenses
-    }
-    
     private var totalDailyAmount: Double {
         dailyExpenses.reduce(0) { $0 + $1.amount }
+    }
+    
+    private var uniqueDays: Int {
+        Set(dailyExpenses.map { expense in
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MM/dd"
+            return formatter.string(from: expense.date)
+        }).count
     }
     
     private var tagBreakdown: [String: Double] {
@@ -451,7 +380,7 @@ struct OutputView: View {
         }
     }
     
-    private var expensesByDay: [String: Double] {
+    private var dailyAmounts: [String: Double] {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM/dd"
         var dailyTotals: [String: Double] = [:]
@@ -463,7 +392,7 @@ struct OutputView: View {
     }
     
     private var sortedDailyBreakdown: [(date: String, amount: Double)] {
-        expensesByDay
+        dailyAmounts
             .sorted { dateA, dateB in
                 guard let dateAObj = dateStringToDate(dateA.key),
                       let dateBObj = dateStringToDate(dateB.key) else {
@@ -474,10 +403,48 @@ struct OutputView: View {
             .map { (date: $0.key, amount: $0.value) }
     }
     
-    private var dailyChartData: [DailyChartData] {
-        sortedDailyBreakdown.map { date, amount in
-            DailyChartData(dateLabel: date, amount: amount)
+    private var cumulativeDailyData: [CumulativeDailyData] {
+        var cumulative: Double = 0
+        var result: [CumulativeDailyData] = []
+        
+        for day in 1...getDaysInMonth(selectedMonth) {
+            let dateString = String(format: "%02d/%02d", Calendar.current.component(.month, from: selectedMonth), day)
+            if let amount = dailyAmounts[dateString] {
+                cumulative += amount
+            }
+            result.append(CumulativeDailyData(day: day, cumulativeAmount: cumulative))
         }
+        
+        return result
+    }
+    
+    private var allDaysOfMonth: [DayInfo] {
+        let calendar = Calendar.current
+        let range = calendar.range(of: .day, in: .month, for: selectedMonth)!
+        let daysInMonth = range.count
+        let month = calendar.component(.month, from: selectedMonth)
+        let year = calendar.component(.year, from: selectedMonth)
+        
+        var days: [DayInfo] = []
+        
+        for day in 1...daysInMonth {
+            let components = DateComponents(year: year, month: month, day: day)
+            guard let date = calendar.date(from: components) else { continue }
+            
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MM/dd"
+            let dateString = formatter.string(from: date)
+            
+            let dayOfWeek = calendar.component(.weekday, from: date)
+            let dayNames = ["日", "月", "火", "水", "木", "金", "土"]
+            let dayName = dayNames[dayOfWeek - 1]
+            
+            let isHoliday = isJapaneseHoliday(date)
+            
+            days.append(DayInfo(dateString: dateString, dayName: dayName, dayOfWeek: dayOfWeek, isHoliday: isHoliday))
+        }
+        
+        return days
     }
     
     // MARK: - Helper Methods
@@ -503,6 +470,12 @@ struct OutputView: View {
         }
     }
     
+    private func getDaysInMonth(_ date: Date) -> Int {
+        let calendar = Calendar.current
+        let range = calendar.range(of: .day, in: .month, for: date)!
+        return range.count
+    }
+    
     private func dateStringToDate(_ dateString: String) -> Date? {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM/dd"
@@ -517,20 +490,59 @@ struct OutputView: View {
         return formatter.string(from: NSNumber(value: value)) ?? "0"
     }
     
+    private func getDayBackgroundColor(_ dayOfWeek: Int, isHoliday: Bool) -> Color {
+        if isHoliday {
+            return Color(red: 1.0, green: 0.85, blue: 0.85)  // Light pink for holidays
+        }
+        
+        switch dayOfWeek {
+        case 1:  // Sunday
+            return Color(red: 1.0, green: 0.92, blue: 0.76)  // Light orange
+        case 7:  // Saturday
+            return Color(red: 1.0, green: 1.0, blue: 0.85)   // Light yellow
+        default:
+            return Color(.systemGray6)  // Default gray for weekdays
+        }
+    }
+    
     private func getTagColor(_ tag: String) -> Color {
-        let colors: [String: Color] = [
-            "スーパー": Color(red: 0.2, green: 0.8, blue: 0.2),
-            "コンビニ": Color(red: 0.0, green: 0.5, blue: 1.0),
-            "レストラン": Color(red: 1.0, green: 0.3, blue: 0.3),
-            "カフェ": Color(red: 0.6, green: 0.3, blue: 0.0),
-            "居酒屋": Color(red: 0.6, green: 0.4, blue: 1.0),
-            "交通": Color(red: 0.0, green: 0.8, blue: 1.0),
-            "娯楽": Color(red: 1.0, green: 0.6, blue: 0.0),
-            "買い物": Color(red: 1.0, green: 0.4, blue: 0.7),
-            "その他": Color.gray,
-            "（タグなし）": Color.gray,
+        let tagObject = dataManager.tags.first { $0.name == tag }
+        return tagObject?.getColor() ?? Color.gray
+    }
+    
+    private func isJapaneseHoliday(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        let month = calendar.component(.month, from: date)
+        let day = calendar.component(.day, from: date)
+        let dayOfWeek = calendar.component(.weekday, from: date)
+        
+        // Japanese holidays in 2025
+        let holidays: [(Int, Int)] = [
+            (1, 1),    // New Year's Day
+            (1, 13),   // Coming of Age Day
+            (2, 11),   // National Foundation Day
+            (3, 21),   // Vernal Equinox Day (approx)
+            (4, 29),   // Showa Day
+            (5, 3),    // Constitution Day
+            (5, 4),    // Greenery Day
+            (5, 5),    // Children's Day
+            (7, 21),   // Marine Day
+            (8, 11),   // Mountain Day
+            (9, 15),   // Respect for the Aged Day
+            (9, 23),   // Autumnal Equinox Day (approx)
+            (10, 13),  // Sports Day
+            (11, 3),   // Culture Day
+            (11, 23),  // Labor Thanksgiving Day
         ]
-        return colors[tag] ?? Color.blue
+        
+        for (hMonth, hDay) in holidays {
+            if month == hMonth && day == hDay {
+                return true
+            }
+        }
+        
+        // Also mark days after holidays as affected
+        return false
     }
 }
 
