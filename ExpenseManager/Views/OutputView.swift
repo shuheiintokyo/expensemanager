@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct OutputView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
@@ -52,51 +53,31 @@ struct OutputView: View {
                     .background(Color(.systemBackground))
                 } else {
                     ScrollView {
-                        VStack(spacing: 20) {
-                            // Tag Pie Chart
+                        VStack(spacing: 24) {
+                            // Summary Card
+                            summaryCard
+                            
+                            // Pie Chart - Tag Breakdown
                             if !tagBreakdown.isEmpty {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text("タグ別支出")
-                                        .font(.headline)
-                                        .fontWeight(.semibold)
-                                    
-                                    tagChartSection
-                                }
-                                .padding(16)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(10)
-                                .padding(.horizontal, 16)
+                                pieChartSection
                             }
                             
-                            // Cumulative Daily Expense Chart
+                            // Line Chart - Daily Trend
                             if !sortedDailyBreakdown.isEmpty {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text("日別累積支出")
-                                        .font(.headline)
-                                        .fontWeight(.semibold)
-                                    
-                                    cumulativeChartSection
-                                }
-                                .padding(16)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(10)
-                                .padding(.horizontal, 16)
+                                lineChartSection
                             }
                             
-                            // Daily Breakdown
+                            // Fixed Expenses Summary
+                            if !recurringExpenses.isEmpty {
+                                fixedExpensesSummary
+                            }
+                            
+                            // Daily Breakdown Details
                             if !sortedDailyBreakdown.isEmpty {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text("日別支出詳細")
-                                        .font(.headline)
-                                        .fontWeight(.semibold)
-                                    
-                                    dailyBreakdownCard
-                                }
-                                .padding(16)
-                                .padding(.horizontal, 16)
+                                dailyBreakdownCard
                             }
                         }
-                        .padding(.vertical, 16)
+                        .padding(16)
                     }
                 }
             }
@@ -104,77 +85,102 @@ struct OutputView: View {
         }
     }
     
-    // MARK: - Chart Views
-    
-    private var tagChartSection: some View {
-        VStack(spacing: 12) {
-            // Total
+    // MARK: - Summary Card
+    private var summaryCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("合計")
-                    .foregroundColor(.gray)
-                    .font(.caption)
-                Spacer()
-                HStack(spacing: 2) {
-                    Text("¥")
-                        .font(.caption2)
-                    Text(formatCurrency(totalDailyAmount))
-                        .font(.headline)
-                        .fontWeight(.bold)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("日常支出")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    HStack(spacing: 2) {
+                        Text("¥")
+                            .font(.caption2)
+                        Text(formatCurrency(totalDailyAmount))
+                            .font(.headline)
+                            .fontWeight(.bold)
+                    }
                 }
-            }
-            
-            // Pie Chart Visual (Simple text-based breakdown)
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(tagBreakdown.sorted(by: { $0.value > $1.value }), id: \.key) { tag, amount in
-                    let percentage = (amount / totalDailyAmount) * 100
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(tag == "" ? "（タグなし）" : tag)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                            Spacer()
-                            Text("\(Int(percentage))%")
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                        }
-                        
-                        GeometryReader { geometry in
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(getTagColor(tag))
-                                .frame(maxWidth: geometry.size.width * CGFloat(percentage / 100))
-                        }
-                        .frame(height: 8)
-                        
-                        HStack {
-                            Spacer()
-                            HStack(spacing: 2) {
-                                Text("¥")
-                                    .font(.caption2)
-                                Text(formatCurrency(amount))
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                            }
-                        }
+                
+                Spacer()
+                
+                VStack(alignment: .center, spacing: 4) {
+                    Text("固定支出")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    HStack(spacing: 2) {
+                        Text("¥")
+                            .font(.caption2)
+                        Text(formatCurrency(dataManager.getTotalRecurringSpent()))
+                            .font(.headline)
+                            .fontWeight(.bold)
+                    }
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("合計")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    HStack(spacing: 2) {
+                        Text("¥")
+                            .font(.caption2)
+                        Text(formatCurrency(totalDailyAmount + dataManager.getTotalRecurringSpent()))
+                            .font(.headline)
+                            .fontWeight(.bold)
                     }
                 }
             }
+            .padding(12)
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(10)
         }
     }
     
-    private var cumulativeChartSection: some View {
+    // MARK: - Pie Chart Section
+    private var pieChartSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Cumulative Chart (simplified bar representation)
-            let maxAmount = (sortedDailyBreakdown.map { $0.amount }.max() ?? 0) * 1.1
+            Text("タグ別支出内訳")
+                .font(.headline)
+                .fontWeight(.semibold)
             
+            // Pie Chart
+            Chart(tagChartData) { item in
+                SectorMark(
+                    angle: .value("金額", item.amount),
+                    innerRadius: .ratio(0.5)
+                )
+                .foregroundStyle(by: .value("タグ", item.tag))
+                .opacity(0.8)
+            }
+            .frame(height: 250)
+            .chartAngleSelection(minimumAngleDifference: 10)
+            .chartBackground { chartProxy in
+                GeometryReader { geometry in
+                    Rectangle()
+                        .fill(Color(.systemBackground))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            
+            // Legend with details
             VStack(alignment: .leading, spacing: 8) {
-                ForEach(sortedDailyBreakdown, id: \.date) { dateStr, amount in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(dateStr)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                            Spacer()
+                ForEach(sortedTagBreakdown, id: \.key) { tag, amount in
+                    let percentage = (amount / totalDailyAmount) * 100
+                    
+                    HStack {
+                        Circle()
+                            .fill(getTagColor(tag))
+                            .frame(width: 12, height: 12)
+                        
+                        Text(tag.isEmpty ? "（タグなし）" : tag)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 1) {
                             HStack(spacing: 2) {
                                 Text("¥")
                                     .font(.caption2)
@@ -182,20 +188,68 @@ struct OutputView: View {
                                     .font(.caption)
                                     .fontWeight(.bold)
                             }
+                            Text("\(Int(percentage))%")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
                         }
-                        
-                        GeometryReader { geometry in
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.blue)
-                                .frame(maxWidth: geometry.size.width * CGFloat(amount / maxAmount))
-                        }
-                        .frame(height: 20)
                     }
+                    .padding(.vertical, 6)
                 }
             }
+            .padding(12)
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
+        }
+        .padding(12)
+        .background(Color(.systemBackground))
+        .cornerRadius(10)
+        .border(Color(.systemGray6), width: 1)
+    }
+    
+    // MARK: - Line Chart Section (Trend)
+    private var lineChartSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("日別支出推移")
+                .font(.headline)
+                .fontWeight(.semibold)
             
-            // Summary
-            VStack(alignment: .leading, spacing: 4) {
+            // Line Chart with X and Y axis
+            Chart(dailyChartData) { item in
+                LineMark(
+                    x: .value("日付", item.dateLabel),
+                    y: .value("金額", item.amount)
+                )
+                .foregroundStyle(Color.blue)
+                .lineStyle(StrokeStyle(lineWidth: 2))
+                
+                PointMark(
+                    x: .value("日付", item.dateLabel),
+                    y: .value("金額", item.amount)
+                )
+                .foregroundStyle(Color.blue)
+                .symbolSize(100)
+            }
+            .frame(height: 200)
+            .chartXAxis {
+                AxisMarks(position: .bottom) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel()
+                        .font(.caption)
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel()
+                        .font(.caption2)
+                }
+            }
+            .chartYScale(domain: [0, (dailyChartData.map { $0.amount }.max() ?? 0) * 1.2])
+            
+            // Statistics
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("合計")
                         .font(.caption)
@@ -223,43 +277,163 @@ struct OutputView: View {
                             .fontWeight(.bold)
                     }
                 }
-            }
-            .padding(.top, 8)
-            .padding(10)
-            .background(Color(.systemBackground))
-            .cornerRadius(8)
-        }
-    }
-    
-    private var dailyBreakdownCard: some View {
-        VStack(spacing: 8) {
-            ForEach(sortedDailyBreakdown, id: \.date) { date, amount in
+                
                 HStack {
-                    Text(date)
-                        .font(.body)
-                        .fontWeight(.semibold)
-                    
+                    Text("最高")
+                        .font(.caption)
+                        .foregroundColor(.gray)
                     Spacer()
-                    
                     HStack(spacing: 2) {
                         Text("¥")
                             .font(.caption2)
-                        Text(formatCurrency(amount))
+                        Text(formatCurrency(sortedDailyBreakdown.map { $0.amount }.max() ?? 0))
+                            .font(.caption)
+                            .fontWeight(.bold)
+                    }
+                }
+            }
+            .padding(10)
+            .background(Color(.systemGray6))
+            .cornerRadius(6)
+        }
+        .padding(12)
+        .background(Color(.systemBackground))
+        .cornerRadius(10)
+        .border(Color(.systemGray6), width: 1)
+    }
+    
+    // MARK: - Fixed Expenses Summary
+    private var fixedExpensesSummary: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("固定支出進捗")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("月間予算")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    HStack(spacing: 2) {
+                        Text("¥")
+                            .font(.caption2)
+                        Text(formatCurrency(dataManager.getTotalRecurringBudget()))
                             .font(.body)
                             .fontWeight(.bold)
                     }
                 }
-                .padding(10)
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("実績")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    HStack(spacing: 2) {
+                        Text("¥")
+                            .font(.caption2)
+                        Text(formatCurrency(dataManager.getTotalRecurringSpent()))
+                            .font(.body)
+                            .fontWeight(.bold)
+                    }
+                }
+            }
+            .padding(12)
+            .background(Color.orange.opacity(0.1))
+            .cornerRadius(8)
+            
+            // Progress bar
+            let totalBudget = dataManager.getTotalRecurringBudget()
+            let totalSpent = dataManager.getTotalRecurringSpent()
+            let progress = min(totalSpent / totalBudget, 1.0)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("使用率")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Spacer()
+                    Text("\(Int(progress * 100))%")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                }
+                
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(.systemGray6))
+                    
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(totalSpent > totalBudget ? Color.red : Color.orange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: CGFloat(progress) * 280)
+                }
+                .frame(height: 8)
             }
         }
+        .padding(12)
+        .background(Color(.systemBackground))
+        .cornerRadius(10)
+        .border(Color(.systemGray6), width: 1)
+    }
+    
+    // MARK: - Daily Breakdown Details
+    private var dailyBreakdownCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("日別支出一覧")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            VStack(spacing: 8) {
+                ForEach(sortedDailyBreakdown, id: \.date) { date, amount in
+                    HStack {
+                        Text(date)
+                            .font(.body)
+                            .fontWeight(.semibold)
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 2) {
+                            Text("¥")
+                                .font(.caption2)
+                            Text(formatCurrency(amount))
+                                .font(.body)
+                                .fontWeight(.bold)
+                        }
+                    }
+                    .padding(10)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(.systemBackground))
+        .cornerRadius(10)
+        .border(Color(.systemGray6), width: 1)
+    }
+    
+    // MARK: - Data Models for Charts
+    
+    struct TagChartData: Identifiable {
+        let id = UUID()
+        let tag: String
+        let amount: Double
+    }
+    
+    struct DailyChartData: Identifiable {
+        let id = UUID()
+        let dateLabel: String
+        let amount: Double
     }
     
     // MARK: - Computed Properties
     
     private var dailyExpenses: [DailyExpense] {
         dataManager.getDailyExpensesForMonth(selectedMonth)
+    }
+    
+    private var recurringExpenses: [RecurringExpense] {
+        dataManager.recurringExpenses
     }
     
     private var totalDailyAmount: Double {
@@ -273,6 +447,16 @@ struct OutputView: View {
             totals[tag, default: 0] += expense.amount
         }
         return totals
+    }
+    
+    private var sortedTagBreakdown: [(key: String, value: Double)] {
+        tagBreakdown.sorted { $0.value > $1.value }
+    }
+    
+    private var tagChartData: [TagChartData] {
+        sortedTagBreakdown.map { tag, amount in
+            TagChartData(tag: tag.isEmpty ? "（タグなし）" : tag, amount: amount)
+        }
     }
     
     private var expensesByDay: [String: Double] {
@@ -296,6 +480,12 @@ struct OutputView: View {
                 return dateAObj < dateBObj
             }
             .map { (date: $0.key, amount: $0.value) }
+    }
+    
+    private var dailyChartData: [DailyChartData] {
+        sortedDailyBreakdown.map { date, amount in
+            DailyChartData(dateLabel: date, amount: amount)
+        }
     }
     
     // MARK: - Helper Methods
@@ -337,15 +527,16 @@ struct OutputView: View {
     
     private func getTagColor(_ tag: String) -> Color {
         let colors: [String: Color] = [
-            "スーパー": Color.green,
-            "コンビニ": Color.blue,
-            "レストラン": Color.red,
-            "カフェ": Color.brown,
-            "居酒屋": Color.purple,
-            "交通": Color.cyan,
-            "娯楽": Color.orange,
-            "買い物": Color.pink,
+            "スーパー": Color(red: 0.2, green: 0.8, blue: 0.2),
+            "コンビニ": Color(red: 0.0, green: 0.5, blue: 1.0),
+            "レストラン": Color(red: 1.0, green: 0.3, blue: 0.3),
+            "カフェ": Color(red: 0.6, green: 0.3, blue: 0.0),
+            "居酒屋": Color(red: 0.6, green: 0.4, blue: 1.0),
+            "交通": Color(red: 0.0, green: 0.8, blue: 1.0),
+            "娯楽": Color(red: 1.0, green: 0.6, blue: 0.0),
+            "買い物": Color(red: 1.0, green: 0.4, blue: 0.7),
             "その他": Color.gray,
+            "（タグなし）": Color.gray,
         ]
         return colors[tag] ?? Color.blue
     }
